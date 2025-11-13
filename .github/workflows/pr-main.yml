@@ -1,0 +1,65 @@
+name: PR to Main
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened]
+
+jobs:
+  validate-pr:
+    name: Validate PR to Main
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Verify PR is from staging
+        run: |
+          if [ "${{ github.head_ref }}" != "staging" ]; then
+            echo "❌ Error: PRs to main must come from staging branch"
+            echo "Current source branch: ${{ github.head_ref }}"
+            exit 1
+          fi
+          echo "✅ PR source validated: staging → main"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linter
+        run: npm run lint
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Run full test suite
+        run: |
+          npm run test
+          npm run test:e2e
+
+      - name: Build application
+        run: npm run build
+
+      - name: Validate Prisma migrations
+        run: npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma
+
+      - name: Comment PR status
+        uses: actions/github-script@v7
+        if: always()
+        with:
+          script: |
+            const status = '${{ job.status }}';
+            const emoji = status === 'success' ? '✅' : '❌';
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `${emoji} Production CI Pipeline ${status}\n\n**Branch:** staging → main\n**Ready for production deployment**`
+            })
