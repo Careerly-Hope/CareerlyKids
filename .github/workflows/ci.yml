@@ -1,5 +1,4 @@
 name: CI
-
 on:
   push:
     branches:
@@ -12,6 +11,12 @@ on:
       - staging
       - main
 
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+  
 jobs:
   lint-and-test:
     name: Lint and Test
