@@ -1,0 +1,114 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+
+// RIASEC Category Enum
+enum RIASECCategory {
+  R // Realistic - hands-on, practical work
+  I // Investigative - thinking, analyzing
+  A // Artistic - creative, expressive
+  S // Social - helping, teaching
+  E // Enterprising - leading, persuading
+  C // Conventional - organizing, detail-oriented
+}
+
+// Match Type for career recommendations
+enum MatchType {
+  BEST_FIT   // >= 0.729
+  GREAT_FIT  // 0.608 - 0.729
+  GOOD_FIT   // 0 - 0.608
+}
+
+// ============================================
+// 1. QUESTIONS TABLE
+// ============================================
+model Question {
+  id        Int             @id @default(autoincrement())
+  category  RIASECCategory
+  text      String          @db.VarChar(500)
+  
+  // Metadata
+  isActive  Boolean         @default(true)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  
+  @@index([category])
+  @@index([isActive])
+  @@map("questions")
+}
+
+// ============================================
+// 2. TEST RESULTS TABLE
+// ============================================
+model TestResult {
+  id              String   @id @default(uuid()) @db.Uuid
+  timestamp       DateTime @default(now())
+  
+  // User responses: [{ questionId: 1, score: 5 }, ...]
+  // Scores are 1-5 scale per question
+  responses       Json     @db.JsonB
+  
+  // RIASEC totals: { R: 24, I: 30, A: 20, S: 34, E: 12, C: 10 }
+  scores          Json     @db.JsonB
+  
+  // Top 3 categories (e.g., "SIA")
+  careerCode      String   @db.VarChar(3)
+  
+  // Matched careers: [{ careerName: "Teacher", matchType: "BEST_FIT", correlation: 0.85 }]
+  matchedCareers  Json     @db.JsonB
+  
+  // Analytics metadata
+  completionTime  Int?
+  deviceType      String?  @db.VarChar(50)
+  
+  @@index([timestamp])
+  @@index([careerCode])
+  @@map("test_results")
+}
+
+// ============================================
+// 3. CAREER PROFILES TABLE
+// ============================================
+model CareerProfile {
+  id          Int      @id @default(autoincrement())
+  careerName  String   @unique @db.VarChar(200)
+  
+  // RIASEC profile: { R: 35, I: 20, A: 10, S: 25, E: 15, C: 30 }
+  // Values normalized 0-40 scale
+  profile     Json     @db.JsonB
+  
+  // Education/Training Level
+  jobZone     Int      @db.SmallInt  // O*NET Job Zone (1-5)
+  jobTier     Int      @default(1) @db.SmallInt  // Kid-friendly tier (1-5), same as jobZone
+  
+  // Career description (kid-friendly)
+  description String   @db.Text
+  
+  // Optional: O*NET occupation code for future integration
+  onetCode    String?  @db.VarChar(20)
+  
+  // Tags for filtering/categorization
+  tags        String[] @default([])
+  
+  // Metadata
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([jobZone])
+  @@index([jobTier])
+  @@index([isActive])
+  @@map("career_profiles")
+}
