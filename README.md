@@ -95,3 +95,21 @@ This project uses a three-environment deployment strategy:
 - 📖 [Deployment Guide](docs/DEPLOYMENT.md)
 
 For detailed deployment instructions, see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
+
+## Badges
+
+## Staging
+```markdown
+![Staging Deploy](https://github.com/YOUR_USERNAME/CareerlyKids/actions/workflows/deploy-staging.yml/badge.svg?branch=staging)
+```
+
+## Production
+```markdown
+![Production Deploy](https://github.com/YOUR_USERNAME/CareerlyKids/actions/workflows/deploy-production.yml/badge.svg?branch=main)
+```
+
+## CI Status
+```markdown
+![CI](https://github.com/YOUR_USERNAME/CareerlyKids/actions/workflows/ci.yml/badge.svg)
+```

@@ -10,6 +10,8 @@ permissions:
   contents: read
   security-events: write
   actions: read
+  statuses: write
+
 
 jobs:
   deploy:
