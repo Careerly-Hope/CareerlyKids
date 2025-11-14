@@ -1,0 +1,36 @@
+services:
+  # Production Service
+  - type: web
+    name: careerlykids-production
+    env: node
+    region: oregon
+    plan: free
+    branch: main
+    buildCommand: npm install && npx prisma generate && npm run build
+    startCommand: npx prisma migrate deploy && npm run start:prod
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        sync: false
+    healthCheckPath: /health
+
+  # Staging Service
+  - type: web
+    name: careerlykids-staging
+    env: node
+    region: oregon
+    plan: free
+    branch: staging
+    buildCommand: npm install && npx prisma generate && npm run build
+    startCommand: npx prisma migrate deploy && npm run start:prod
+    envVars:
+      - key: NODE_ENV
+        value: staging
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        sync: false
+    healthCheckPath: /health
