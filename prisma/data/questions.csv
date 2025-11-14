@@ -1,0 +1,61 @@
+id,category,text,isActive,createdAt,updatedAt
+301,R,I enjoy working with tools and building things with my hands,t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+302,R,"I like fixing broken objects like toys, bikes, or electronics",t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+303,R,I would rather work outdoors than sit at a desk all day,t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+304,R,"I enjoy playing with LEGO, building blocks, or model kits",t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+305,R,I like learning how machines and mechanical things work,t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+306,R,I prefer doing hands-on activities over reading or writing,t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+307,R,I enjoy sports and physical activities,t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+308,R,"I like working with plants, animals, or nature",t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+309,R,"I would enjoy learning a trade like carpentry, plumbing, or welding",t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+310,R,I find it satisfying to create something I can actually touch and use,t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+311,I,"I enjoy solving puzzles, riddles, and brain teasers",t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+312,I,I like to ask questions and understand how things work,t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+313,I,I enjoy science experiments and discovering new things,t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+314,I,I prefer thinking through problems carefully before taking action,t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+315,I,"I like reading about science, technology, or history",t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+316,I,I enjoy doing research and finding answers to difficult questions,t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+317,I,I like mathematics and working with numbers,t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+318,I,I am curious about why things happen the way they do,t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+319,I,I would enjoy working in a laboratory or doing research,t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+320,I,I like analyzing information and finding patterns,t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+321,A,"I enjoy drawing, painting, or doing other forms of art",t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+322,A,"I like writing stories, poems, or songs",t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+323,A,"I enjoy expressing myself through music, dance, or drama",t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+324,A,I have a good imagination and like creating new ideas,t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+325,A,"I enjoy designing things like clothes, rooms, or websites",t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+326,A,I like thinking of creative solutions to problems,t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+327,A,"I enjoy watching or reading about art, music, or theater",t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+328,A,I prefer activities where I can be creative and original,t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+329,A,I like decorating spaces or making things look beautiful,t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+330,A,I feel excited when I have the freedom to create something unique,t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+331,S,I enjoy helping others with their problems,t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+332,S,I like teaching or explaining things to other people,t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+333,S,I enjoy working as part of a team rather than working alone,t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+334,S,I care about making other people feel happy and supported,t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+335,S,I like volunteering and helping my community,t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+336,S,I am good at understanding how other people feel,t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+337,S,I enjoy taking care of younger children or people who need help,t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+338,S,I like listening to people talk about their feelings and problems,t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+339,S,"I would enjoy working in healthcare, counseling, or education",t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+340,S,I feel good when I can make a positive difference in someone's life,t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+341,E,I enjoy leading group projects or activities,t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+342,E,I like organizing events and bringing people together,t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+343,E,I am good at convincing people to see things my way,t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+344,E,I enjoy competing and trying to win,t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+345,E,I like starting new projects and making things happen,t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+346,E,I am comfortable speaking in front of groups of people,t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+347,E,I enjoy selling things or promoting ideas,t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+348,E,I like making decisions and being in charge,t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+349,E,I would enjoy running my own business someday,t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+350,E,I am motivated by success and achieving goals,t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+351,C,I like keeping my belongings neat and organized,t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+352,C,I enjoy following clear rules and procedures,t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+353,C,I am good at paying attention to small details,t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+354,C,"I like working with numbers, data, or records",t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+355,C,"I enjoy creating lists, schedules, and plans",t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+356,C,I prefer tasks that have clear steps to follow,t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+357,C,I am good at sorting and organizing information,t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+358,C,I like things to be orderly and predictable,t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+359,C,I enjoy checking work carefully to make sure it is correct,t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
+360,C,"I would enjoy working with computers, filing systems, or databases",t,2025-11-10 23:39:04.464,2025-11-10 23:39:04.464
