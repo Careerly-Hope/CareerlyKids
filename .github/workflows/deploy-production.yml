@@ -6,14 +6,11 @@ on:
       - main
   workflow_dispatch:
 
-
 permissions:
   contents: read
   security-events: write
   actions: read
   statuses: write
- 
-    
 
 jobs:
   deploy:
@@ -55,22 +52,24 @@ jobs:
         run: |
           curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK_PRODUCTION }}
 
-      - name: Wait for deployment
-        run: sleep 90
-
-      - name: Health check
+      # NEW: Retry logic for production
+      - name: Wait for Render to become healthy
         run: |
-          response=$(curl -s -o /dev/null -w "%{http_code}" https://careerlykids-production.onrender.com/health)
-          if [ $response -eq 200 ]; then
-            echo "✅ Production deployment successful!"
-          else
-            echo "❌ Production health check failed with status: $response"
-            exit 1
-          fi
+          echo "⏳ Waiting for production server to become healthy..."
+          for i in {1..18}; do
+            status=$(curl -s -o /dev/null -w "%{http_code}" https://careerlykids-production.onrender.com/health)
+            echo "Attempt $i: HTTP $status"
+            if [ "$status" -eq 200 ]; then
+              echo "🚀 Production server is healthy!"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "❌ Production health check failed after multiple retries"
+          exit 1
 
       - name: Wake database
-        run: |
-          curl -X GET https://careerlykids-production.onrender.com/health/wake
+        run: curl -X GET https://careerlykids-production.onrender.com/health/wake
 
       - name: Notify deployment status
         if: always()
@@ -79,16 +78,13 @@ jobs:
           script: |
             const status = '${{ job.status }}';
             const emoji = status === 'success' ? '🚀' : '❌';
-            const environment = 'Production';
-            const url = 'https://careerlykids-production.onrender.com';
-            
             github.rest.repos.createCommitStatus({
               owner: context.repo.owner,
               repo: context.repo.repo,
               sha: context.sha,
               state: status === 'success' ? 'success' : 'failure',
-              target_url: url,
-              description: `${emoji} ${environment} deployment ${status}`,
+              target_url: 'https://careerlykids-production.onrender.com',
+              description: `${emoji} Production deployment ${status}`,
               context: 'Deploy / Production'
             });
 
