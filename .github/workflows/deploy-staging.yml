@@ -1,0 +1,81 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches:
+      - staging
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+  statuses: write
+
+jobs:
+  deploy:
+    name: Deploy to Render Staging
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: https://careerlykids-staging.onrender.com
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm run test
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Build application
+        run: npm run build
+
+      - name: Trigger Render Deploy
+        if: success()
+        run: |
+          curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK_STAGING }}
+
+      # NEW: Retry loop instead of fixed 60s sleep
+      - name: Wait for Render to become healthy
+        run: |
+          echo "⏳ Waiting for staging server to become healthy..."
+          for i in {1..12}; do
+            status=$(curl -s -o /dev/null -w "%{http_code}" https://careerlykids-staging.onrender.com/health)
+            echo "Attempt $i: HTTP $status"
+            if [ "$status" -eq 200 ]; then
+              echo "✅ Staging server is healthy!"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "❌ Staging health check failed after multiple retries"
+          exit 1
+
+      - name: Notify deployment status
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const status = '${{ job.status }}';
+            const emoji = status === 'success' ? '✅' : '❌';
+            github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: context.sha,
+              state: status === 'success' ? 'success' : 'failure',
+              target_url: 'https://careerlykids-staging.onrender.com',
+              description: `${emoji} Staging deployment ${status}`,
+              context: 'Deploy / Staging'
+            });
