@@ -6,6 +6,11 @@ on:
       - staging
   workflow_dispatch:
 
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
 jobs:
   deploy:
     name: Deploy to Render Staging
@@ -13,6 +18,10 @@ jobs:
     environment:
       name: staging
       url: https://careerlykids-staging.onrender.com
+
+    env:
+      DATABASE_URL: 'postgresql://user:pass@localhost:5432/db' # Dummy DB for Jest
+      NODE_ENV: test
 
     steps:
       - name: Checkout code
@@ -63,7 +72,7 @@ jobs:
             const emoji = status === 'success' ? '✅' : '❌';
             const environment = 'Staging';
             const url = 'https://careerlykids-staging.onrender.com';
-            
+
             github.rest.repos.createCommitStatus({
               owner: context.repo.owner,
               repo: context.repo.repo,
