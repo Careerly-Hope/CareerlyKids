@@ -1,115 +1,198 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="200" alt="Nest Logo" /></a>
-</p>
+# CareerlyKids API
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Backend API for CareerlyKids application built with NestJS, Prisma, and PostgreSQL.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://coveralls.io/github/nestjs/nest?branch=master" target="_blank"><img src="https://coveralls.io/repos/github/nestjs/nest/badge.svg?branch=master#9" alt="Coverage" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## 🚀 Quick Start
 
-## Description
+### Prerequisites
+- Node.js 18.x or 20.x
+- npm or yarn
+- PostgreSQL (or Neon account)
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Installation
-
+### Installation
 ```bash
-$ npm install
+# Clone repository
+git clone https://github.com/YOUR_USERNAME/CareerlyKids.git
+cd CareerlyKids
+
+# Install dependencies
+npm install
+
+# Set up environment variables
+cp .env.example .env
+# Edit .env with your database URL
+
+# Generate Prisma Client
+npx prisma generate
+
+# Run database migrations
+npx prisma migrate dev
+
+# Start development server
+npm run start:dev
 ```
 
-## Running the app
+Visit http://localhost:3000/api/docs for Swagger documentation.
 
+## 🌍 Environments
+
+| Environment | Branch | URL | Status |
+|------------|--------|-----|--------|
+| Development | `development` | Local | - |
+| Staging | `staging` | [staging.onrender.com](https://careerlykids-staging.onrender.com) | ![Staging](https://img.shields.io/badge/status-live-green) |
+| Production | `main` | [production.onrender.com](https://careerlykids-production.onrender.com) | ![Production](https://img.shields.io/badge/status-live-green) |
+
+## 📚 Documentation
+
+- [Deployment Guide](docs/DEPLOYMENT.md)
+- [Keep-Alive Setup](docs/KEEP-ALIVE.md)
+- [API Documentation](https://careerlykids-production.onrender.com/api/docs)
+
+## 🛠️ Tech Stack
+
+- **Framework:** NestJS v10
+- **Language:** TypeScript
+- **ORM:** Prisma
+- **Database:** PostgreSQL (Neon)
+- **Deployment:** Render
+- **CI/CD:** GitHub Actions
+- **API Docs:** Swagger/OpenAPI
+- **Testing:** Jest
+
+## 📝 Available Scripts
 ```bash
-# development
-$ npm run start
+# Development
+npm run start:dev          # Start dev server with hot reload
+npm run start:debug        # Start dev server with debugging
 
-# watch mode
-$ npm run start:dev
+# Building
+npm run build             # Build for production
 
-# production mode
-$ npm run start:prod
+# Testing
+npm run test              # Run unit tests
+npm run test:watch        # Run tests in watch mode
+npm run test:cov          # Generate coverage report
+npm run test:e2e          # Run e2e tests
+
+# Code Quality
+npm run lint              # Run ESLint
+npm run format            # Format with Prettier
+
+# Database
+npm run prisma:generate   # Generate Prisma Client
+npm run prisma:migrate    # Run migrations in dev
+npm run prisma:studio     # Open Prisma Studio
 ```
 
-## Test
+## 🔄 Development Workflow
 
+### Creating a New Feature
 ```bash
-# unit tests
-$ npm run test
+# 1. Create feature branch from development
+git checkout development
+git pull origin development
+git checkout -b feature/your-feature-name
 
-# e2e tests
-$ npm run test:e2e
+# 2. Make changes and commit
+git add .
+git commit -m "feat: add your feature"
 
-# test coverage
-$ npm run test:cov
+# 3. Push to development
+git push origin development
+
+# 4. Create PR: development → staging
+# 5. After review, merge to staging
+# 6. Test on staging environment
+# 7. Create PR: staging → main
+# 8. Merge to production
 ```
 
-## Support
+### Branch Strategy
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+- `development` - Active development (direct pushes allowed)
+- `staging` - Pre-production testing (PR from development only)
+- `main` - Production (PR from staging only)
 
-## Stay in touch
+## 🏥 Health Checks
 
-- Author - [Kamil Myśliwiec](https://kamilmysliwiec.com)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+### Endpoints
 
-## License
+- `GET /health` - Basic health check
+- `GET /health/wake` - Wake service and database
+- `GET /health/detailed` - Comprehensive system info
+- `GET /health/ready` - Readiness probe
+- `GET /health/live` - Liveness probe
 
-Nest is [MIT licensed](LICENSE).
+### Keep-Alive
 
+Cron jobs ping `/health/wake` every 14 minutes to prevent Render and Neon from sleeping.
+
+## 🧪 Testing
+```bash
+# Run all tests
+npm test
+
+# Run tests with coverage
+npm run test:cov
+
+# Run e2e tests
+npm run test:e2e
+
+# Run tests in watch mode
+npm run test:watch
+```
+
+## 🔐 Environment Variables
+
+Required environment variables:
+```env
+DATABASE_URL="postgresql://user:pass@host:5432/db"
+NODE_ENV="development"
+PORT=3000
+```
+
+See `.env.example` for complete list.
 
 ## 🚀 Deployment
 
-This project uses a three-environment deployment strategy:
+Deployments are automatic:
 
-- **Development** - Local development
-- **Staging** - Pre-production testing
-- **Production** - Live application
+- Push to `staging` branch → Deploys to staging
+- Push to `main` branch → Deploys to production
 
-### Deployed Environments
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for details.
 
-| Environment | URL | Branch | Status |
-|------------|-----|--------|--------|
-| Staging | https://careerlykids-staging.onrender.com | `staging` | ![Staging](https://img.shields.io/badge/staging-deploying-yellow) |
-| Production | https://careerlykids-production.onrender.com | `main` | ![Production](https://img.shields.io/badge/production-live-green) |
+## 🤝 Contributing
 
-### Quick Links
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'feat: add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-- 📚 [Staging API Docs](https://careerlykids-staging.onrender.com/api/docs)
-- 📚 [Production API Docs](https://careerlykids-production.onrender.com/api/docs)
-- 📖 [Deployment Guide](docs/DEPLOYMENT.md)
+### Commit Convention
 
-For detailed deployment instructions, see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+We use [Conventional Commits](https://www.conventionalcommits.org/):
 
+- `feat:` - New feature
+- `fix:` - Bug fix
+- `docs:` - Documentation changes
+- `style:` - Code style changes (formatting, etc)
+- `refactor:` - Code refactoring
+- `test:` - Adding or updating tests
+- `chore:` - Maintenance tasks
 
-## Badges
+## 📄 License
 
-## Staging
-```markdown
-![Staging Deploy](https://github.com/YOUR_USERNAME/CareerlyKids/actions/workflows/deploy-staging.yml/badge.svg?branch=staging)
-```
+This project is licensed under the MIT License.
 
-## Production
-```markdown
-![Production Deploy](https://github.com/YOUR_USERNAME/CareerlyKids/actions/workflows/deploy-production.yml/badge.svg?branch=main)
-```
+## 👥 Authors
 
-## CI Status
-```markdown
-![CI](https://github.com/YOUR_USERNAME/CareerlyKids/actions/workflows/ci.yml/badge.svg)
-```
+- Your Name - [@yourhandle](https://github.com/yourhandle)
+
+## 🙏 Acknowledgments
+
+- NestJS team
+- Prisma team
+- Neon database
+- Render platform
