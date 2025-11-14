@@ -71,3 +71,27 @@ Nest is an MIT-licensed open source project. It can grow thanks to the sponsors 
 ## License
 
 Nest is [MIT licensed](LICENSE).
+
+
+## 🚀 Deployment
+
+This project uses a three-environment deployment strategy:
+
+- **Development** - Local development
+- **Staging** - Pre-production testing
+- **Production** - Live application
+
+### Deployed Environments
+
+| Environment | URL | Branch | Status |
+|------------|-----|--------|--------|
+| Staging | https://careerlykids-staging.onrender.com | `staging` | ![Staging](https://img.shields.io/badge/staging-deploying-yellow) |
+| Production | https://careerlykids-production.onrender.com | `main` | ![Production](https://img.shields.io/badge/production-live-green) |
+
+### Quick Links
+
+- 📚 [Staging API Docs](https://careerlykids-staging.onrender.com/api/docs)
+- 📚 [Production API Docs](https://careerlykids-production.onrender.com/api/docs)
+- 📖 [Deployment Guide](docs/DEPLOYMENT.md)
+
+For detailed deployment instructions, see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
