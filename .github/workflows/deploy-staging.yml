@@ -12,7 +12,6 @@ permissions:
   actions: read
   statuses: write
 
-
 jobs:
   deploy:
     name: Deploy to Render Staging
@@ -20,10 +19,6 @@ jobs:
     environment:
       name: staging
       url: https://careerlykids-staging.onrender.com
-
-    env:
-      DATABASE_URL: 'postgresql://user:pass@localhost:5432/db' # Dummy DB for Jest
-      NODE_ENV: test
 
     steps:
       - name: Checkout code
@@ -52,18 +47,21 @@ jobs:
         run: |
           curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK_STAGING }}
 
-      - name: Wait for deployment
-        run: sleep 60
-
-      - name: Health check
+      # NEW: Retry loop instead of fixed 60s sleep
+      - name: Wait for Render to become healthy
         run: |
-          response=$(curl -s -o /dev/null -w "%{http_code}" https://careerlykids-staging.onrender.com/health)
-          if [ $response -eq 200 ]; then
-            echo "✅ Staging deployment successful!"
-          else
-            echo "❌ Staging health check failed with status: $response"
-            exit 1
-          fi
+          echo "⏳ Waiting for staging server to become healthy..."
+          for i in {1..12}; do
+            status=$(curl -s -o /dev/null -w "%{http_code}" https://careerlykids-staging.onrender.com/health)
+            echo "Attempt $i: HTTP $status"
+            if [ "$status" -eq 200 ]; then
+              echo "✅ Staging server is healthy!"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "❌ Staging health check failed after multiple retries"
+          exit 1
 
       - name: Notify deployment status
         if: always()
@@ -72,15 +70,12 @@ jobs:
           script: |
             const status = '${{ job.status }}';
             const emoji = status === 'success' ? '✅' : '❌';
-            const environment = 'Staging';
-            const url = 'https://careerlykids-staging.onrender.com';
-
             github.rest.repos.createCommitStatus({
               owner: context.repo.owner,
               repo: context.repo.repo,
               sha: context.sha,
               state: status === 'success' ? 'success' : 'failure',
-              target_url: url,
-              description: `${emoji} ${environment} deployment ${status}`,
+              target_url: 'https://careerlykids-staging.onrender.com',
+              description: `${emoji} Staging deployment ${status}`,
               context: 'Deploy / Staging'
             });
