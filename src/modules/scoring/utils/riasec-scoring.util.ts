@@ -3,7 +3,6 @@ import {
   TIER_THRESHOLDS,
   TIER_NAMES,
   SCORE_CONSTRAINTS,
-  RIASEC_CATEGORIES,
 } from '../constants/scoring.constants';
 
 export interface RIASECScores {
