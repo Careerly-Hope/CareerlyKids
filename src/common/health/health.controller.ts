@@ -1,10 +1,5 @@
 import { Controller, Get, HttpStatus } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiProduces,
-} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiProduces } from '@nestjs/swagger';
 import { HealthService } from './health.service';
 import {
   HealthResponseDto,
@@ -18,9 +13,9 @@ export class HealthController {
   constructor(private readonly healthService: HealthService) {}
 
   @Get()
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Basic health check',
-    description: 'Quick health check endpoint that responds immediately without database queries'
+    description: 'Quick health check endpoint that responds immediately without database queries',
   })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -35,7 +30,8 @@ export class HealthController {
   @Get('wake')
   @ApiOperation({
     summary: 'Wake up service and database',
-    description: 'Pings the database to prevent Render and Neon from sleeping. Use this endpoint with cron jobs.',
+    description:
+      'Pings the database to prevent Render and Neon from sleeping. Use this endpoint with cron jobs.',
   })
   @ApiResponse({
     status: HttpStatus.OK,
