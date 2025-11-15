@@ -1,22 +1,20 @@
 {
   "name": "careerly-kids",
   "version": "0.0.1",
-  "private": true,
-  "license": "UNLICENSED",
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
+  },
   "description": "",
   "author": "",
-
-  "engines": {
-    "node": "20.x"
-  },
-
+  "private": true,
+  "license": "UNLICENSED",
   "scripts": {
     "build": "nest build",
+    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
-    "start:prod": "node dist/main.js",
-    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
+    "start:prod": "node dist/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -26,11 +24,9 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-
     "render:build": "./scripts/render-build.sh",
     "render:start": "./scripts/render-start.sh"
   },
-
   "dependencies": {
     "@nestjs/axios": "^4.0.1",
     "@nestjs/cli": "^10.0.0",
@@ -50,7 +46,6 @@
     "rxjs": "^7.8.1",
     "swagger-ui-express": "^5.0.1"
   },
-
   "devDependencies": {
     "@nestjs/schematics": "^10.0.0",
     "@nestjs/testing": "^10.0.0",

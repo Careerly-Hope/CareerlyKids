@@ -6,7 +6,7 @@ import { HealthModule } from './common/health/health.module';
 import { AssessmentsModule } from './modules/assessments/assessments.module';
 
 @Module({
-  imports: [PrismaModule, HealthModule,AssessmentsModule],
+  imports: [PrismaModule, HealthModule, AssessmentsModule],
   controllers: [AppController],
   providers: [AppService],
 })

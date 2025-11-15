@@ -1,9 +1,5 @@
 import { Question } from '@prisma/client';
-import {
-  TIER_THRESHOLDS,
-  TIER_NAMES,
-  SCORE_CONSTRAINTS,
-} from '../constants/scoring.constants';
+import { TIER_THRESHOLDS, TIER_NAMES, SCORE_CONSTRAINTS } from '../constants/scoring.constants';
 
 export interface RIASECScores {
   R: number;
@@ -37,51 +33,49 @@ export class ScoringError extends Error {
     this.name = 'ScoringError';
   }
 }
- 
+
 export function calculateRIASECScores(
   responses: QuestionResponse[],
   questions: Question[],
 ): RIASECScores {
   const scores: RIASECScores = { R: 0, I: 0, A: 0, S: 0, E: 0, C: 0 };
   const errors: string[] = [];
-  
+
   // ✅ CREATE LOOKUP MAP ONCE - Like creating an index in a book
   // Instead of searching through all questions for each response,
   // we create a "dictionary" where we can instantly find any question
-  const questionMap = new Map(
-    questions.map(q => [q.id, q])
-  );
-  
+  const questionMap = new Map(questions.map((q) => [q.id, q]));
+
   // ✅ NOW EACH LOOKUP IS INSTANT
   responses.forEach((response) => {
     const question = questionMap.get(response.questionId);
-    
+
     // ✅ COLLECT ERRORS instead of just logging them
     if (!question) {
       errors.push(`Question ${response.questionId} not found`);
       return;
     }
-    
+
     const { category } = question;
     const { score } = response;
-    
+
     // ✅ VALIDATE SCORE using constants (no magic numbers!)
     if (score < SCORE_CONSTRAINTS.MIN_SCORE || score > SCORE_CONSTRAINTS.MAX_SCORE) {
       errors.push(
         `Invalid score ${score} for question ${response.questionId} ` +
-        `(must be between ${SCORE_CONSTRAINTS.MIN_SCORE} and ${SCORE_CONSTRAINTS.MAX_SCORE})`
+          `(must be between ${SCORE_CONSTRAINTS.MIN_SCORE} and ${SCORE_CONSTRAINTS.MAX_SCORE})`,
       );
       return;
     }
-    
+
     scores[category] += score;
   });
-  
+
   // ✅ THROW ERROR if problems found - Don't hide issues from the user!
   if (errors.length > 0) {
     throw new ScoringError('Invalid assessment responses', errors);
   }
-  
+
   return scores;
 }
 
@@ -91,14 +85,14 @@ export function calculateRIASECScores(
  */
 export function generateCareerCode(scores: RIASECScores): string {
   const sorted = Object.entries(scores)
-    .sort((a, b) => b[1] - a[1])  // Sort by score (highest first)
-    .slice(0, 3);                  // Take top 3
+    .sort((a, b) => b[1] - a[1]) // Sort by score (highest first)
+    .slice(0, 3); // Take top 3
   return sorted.map((entry) => entry[0]).join('');
 }
 
 /**
  * Determine tier based on total score
- * 
+ *
  * IMPROVEMENT: Uses constants instead of magic numbers
  * Now if thresholds change, you only update ONE file!
  */
@@ -111,16 +105,13 @@ export function calculateTier(totalScore: number): string {
 
 /**
  * Complete scoring function
- * 
+ *
  * IMPROVEMENTS:
  * 1. Uses constants for validation (SCORE_CONSTRAINTS.TOTAL_QUESTIONS)
  * 2. Better error messages
  * 3. All errors bubble up properly
  */
-export function scoreTest(
-  responses: QuestionResponse[],
-  questions: Question[],
-): ScoringResult {
+export function scoreTest(responses: QuestionResponse[], questions: Question[]): ScoringResult {
   // Validate input
   if (!responses || !Array.isArray(responses)) {
     throw new Error('Responses must be an array');
@@ -130,7 +121,7 @@ export function scoreTest(
   }
   if (responses.length !== SCORE_CONSTRAINTS.TOTAL_QUESTIONS) {
     throw new Error(
-      `Expected ${SCORE_CONSTRAINTS.TOTAL_QUESTIONS} responses, got ${responses.length}`
+      `Expected ${SCORE_CONSTRAINTS.TOTAL_QUESTIONS} responses, got ${responses.length}`,
     );
   }
 
@@ -163,7 +154,7 @@ export function scoreTest(
 
 /**
  * Validate test responses
- * 
+ *
  * IMPROVEMENT: Uses constants for validation values
  */
 /**
@@ -180,9 +171,7 @@ export function validateResponses(responses: QuestionResponse[]): {
   }
 
   if (responses.length !== SCORE_CONSTRAINTS.TOTAL_QUESTIONS) {
-    errors.push(
-      `Expected ${SCORE_CONSTRAINTS.TOTAL_QUESTIONS} responses, got ${responses.length}`
-    );
+    errors.push(`Expected ${SCORE_CONSTRAINTS.TOTAL_QUESTIONS} responses, got ${responses.length}`);
   }
 
   // ✅ CHECK FOR DUPLICATE QUESTION IDs
@@ -210,7 +199,7 @@ export function validateResponses(responses: QuestionResponse[]): {
     ) {
       errors.push(
         `Response ${idx}: invalid score ${response.score} ` +
-          `(must be ${SCORE_CONSTRAINTS.MIN_SCORE}-${SCORE_CONSTRAINTS.MAX_SCORE})`
+          `(must be ${SCORE_CONSTRAINTS.MIN_SCORE}-${SCORE_CONSTRAINTS.MAX_SCORE})`,
       );
     }
   });
@@ -220,7 +209,7 @@ export function validateResponses(responses: QuestionResponse[]): {
     const uniqueDuplicates = [...new Set(duplicates)];
     errors.push(
       `Duplicate question IDs detected: ${uniqueDuplicates.join(', ')}. ` +
-        `Each question must be answered exactly once.`
+        `Each question must be answered exactly once.`,
     );
   }
 

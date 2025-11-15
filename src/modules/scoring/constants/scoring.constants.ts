@@ -1,5 +1,3 @@
- 
-
 /**
  * Scoring Constants - Updated with better matching thresholds
  * All magic numbers and configuration values in one place
@@ -7,10 +5,10 @@
 
 // Tier thresholds for career readiness levels
 export const TIER_THRESHOLDS = {
-  LEADER: 181,      // Top tier: Strong match across all areas
-  INNOVATOR: 121,   // High tier: Well-developed interests
-  APPRENTICE: 61,   // Mid tier: Emerging interests
-  EXPLORER: 0,      // Entry tier: Starting to explore
+  LEADER: 181, // Top tier: Strong match across all areas
+  INNOVATOR: 121, // High tier: Well-developed interests
+  APPRENTICE: 61, // Mid tier: Emerging interests
+  EXPLORER: 0, // Entry tier: Starting to explore
 } as const;
 
 // Tier names
@@ -31,9 +29,9 @@ export const SCORE_CONSTRAINTS = {
 // ✅ UPDATED: Career matching thresholds
 // Now using absolute values to handle negative correlations
 export const MATCH_THRESHOLDS = {
-  BEST_FIT: 0.729,   // |correlation| >= 0.729 (very strong match)
-  GREAT_FIT: 0.608,  // |correlation| >= 0.608 (strong match)
-  GOOD_FIT: 0.0,     // |correlation| >= 0.0 (all matches are at least good)
+  BEST_FIT: 0.729, // |correlation| >= 0.729 (very strong match)
+  GREAT_FIT: 0.608, // |correlation| >= 0.608 (strong match)
+  GOOD_FIT: 0.0, // |correlation| >= 0.0 (all matches are at least good)
 } as const;
 
 // Match type names
@@ -75,24 +73,24 @@ export const RIASEC_DESCRIPTIONS = {
 
 // Default values
 export const DEFAULTS = {
-  TOP_MATCHES: 10,              // Default number of career matches to return
-  MAX_MATCHES: 50,              // Maximum matches to return
-  MIN_MATCHES_GUARANTEED: 5,    // ✅ NEW: Minimum matches to always return (fallback)
-  CACHE_TTL_MINUTES: 60,        // ✅ NEW: Cache normalized profiles for 1 hour
+  TOP_MATCHES: 10, // Default number of career matches to return
+  MAX_MATCHES: 50, // Maximum matches to return
+  MIN_MATCHES_GUARANTEED: 5, // ✅ NEW: Minimum matches to always return (fallback)
+  CACHE_TTL_MINUTES: 60, // ✅ NEW: Cache normalized profiles for 1 hour
 } as const;
 
 // ✅ NEW: Performance thresholds
 export const PERFORMANCE = {
-  SLOW_QUERY_MS: 100,           // Log warning if matching takes > 100ms
+  SLOW_QUERY_MS: 100, // Log warning if matching takes > 100ms
   MAX_PROCESSING_TIME_MS: 5000, // Fail-safe timeout
 } as const;
 
 // ✅ NEW: Validation rules
 export const VALIDATION = {
-  MIN_CAREERS_IN_DB: 10,        // Minimum careers needed for valid matching
-  MAX_PREFERENCE_TAGS: 10,      // Maximum tags user can select
-  MAX_JOB_ZONE: 5,              // Maximum job zone value
-  MIN_JOB_ZONE: 1,              // Minimum job zone value
+  MIN_CAREERS_IN_DB: 10, // Minimum careers needed for valid matching
+  MAX_PREFERENCE_TAGS: 10, // Maximum tags user can select
+  MAX_JOB_ZONE: 5, // Maximum job zone value
+  MIN_JOB_ZONE: 1, // Minimum job zone value
 } as const;
 
 // ✅ NEW: Error messages
@@ -106,9 +104,9 @@ export const ERROR_MESSAGES = {
 } as const;
 
 // ✅ NEW: Type guards for better TypeScript support
-export type MatchType = typeof MATCH_TYPES[keyof typeof MATCH_TYPES];
-export type RIASECCategory = typeof RIASEC_CATEGORIES[number];
-export type TierName = typeof TIER_NAMES[keyof typeof TIER_NAMES];
+export type MatchType = (typeof MATCH_TYPES)[keyof typeof MATCH_TYPES];
+export type RIASECCategory = (typeof RIASEC_CATEGORIES)[number];
+export type TierName = (typeof TIER_NAMES)[keyof typeof TIER_NAMES];
 
 // ✅ NEW: Helper to validate match type
 export function isValidMatchType(value: string): value is MatchType {

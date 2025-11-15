@@ -16,9 +16,9 @@ export class AppController {
 
   @Get('health')
   @ApiOperation({ summary: 'Health check endpoint' })
-  @ApiResponse({ 
-    status: 200, 
-    description: 'Returns application and database health status' 
+  @ApiResponse({
+    status: 200,
+    description: 'Returns application and database health status',
   })
   healthCheck() {
     return this.appService.healthCheck();

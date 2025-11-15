@@ -54,9 +54,7 @@ export class JobPreferencesDto {
   @IsString({ each: true })
   preferredTags?: string[];
 
-
-  [key: string]: any; 
-
+  [key: string]: any;
 
   @ApiProperty({
     required: false,
