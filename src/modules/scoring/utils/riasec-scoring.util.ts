@@ -1,4 +1,4 @@
-import { Question, RIASECCategory } from '@prisma/client';
+import { Question } from '@prisma/client';
 import {
   TIER_THRESHOLDS,
   TIER_NAMES,
@@ -38,15 +38,7 @@ export class ScoringError extends Error {
     this.name = 'ScoringError';
   }
 }
-
-/**
- * Calculate RIASEC scores from user responses
- * 
- * IMPROVEMENTS:
- * 1. Uses Map for O(1) lookups instead of O(n) - 60x faster!
- * 2. Collects all errors instead of silently failing
- * 3. Throws proper errors so users know what went wrong
- */
+ 
 export function calculateRIASECScores(
   responses: QuestionResponse[],
   questions: Question[],
