@@ -52,10 +52,15 @@ async function main() {
           id: parseInt(row.id),
           category: row.category as RIASECCategory,
           text: row.text,
-          isActive: row.is_active === 't' || row.is_active === 'true',
+    
+          // FIXED BOOLEAN PARSING
+          isActive: ['t', 'true', '1', 'yes', 'y'].includes(
+            row.is_active?.toString().trim().toLowerCase()
+          ),
         },
       });
     }
+    
     console.log(`✅ Imported ${questionsData.length} questions`);
   } else {
     console.log('⚠️  questions.csv not found, skipping...');

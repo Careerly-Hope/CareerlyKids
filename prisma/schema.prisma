@@ -1,4 +1,3 @@
-// prisma/schema.prisma
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,105 +7,48 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ============================================
-// ENUMS
-// ============================================
-
-enum RIASECCategory {
-  R // Realistic
-  I // Investigative
-  A // Artistic
-  S // Social
-  E // Enterprising
-  C // Conventional
-}
-
-enum MatchType {
-  BEST_FIT   // >= 0.729
-  GREAT_FIT  // 0.608 - 0.729
-  GOOD_FIT   // 0 - 0.608
-}
-
-enum SessionStatus {
-  STARTED
-  COMPLETED
-  EXPIRED
-}
-
-// ============================================
-// SESSION MANAGEMENT
-// ============================================
-
 model TestSession {
-  id            String        @id @default(uuid())
-  sessionToken  String        @unique
-  startedAt     DateTime      @default(now())
-  expiresAt     DateTime
-  status        SessionStatus @default(STARTED)
-  
-  // Relation to result
-  result        TestResult?
-  
+  id           String        @id @default(uuid())
+  sessionToken String        @unique
+  startedAt    DateTime      @default(now())
+  expiresAt    DateTime
+  status       SessionStatus @default(STARTED)
+  result       TestResult?
+
   @@index([sessionToken])
   @@index([expiresAt])
   @@index([status])
   @@map("test_sessions")
 }
 
-// ============================================
-// QUESTIONS
-// ============================================
-
 model Question {
-  id        Int             @id @default(autoincrement())
+  id        Int            @id @default(autoincrement())
   category  RIASECCategory
-  text      String          @db.VarChar(500)
-  
-  // Metadata
-  isActive  Boolean         @default(true)
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
-  
+  text      String         @db.VarChar(500)
+  isActive  Boolean        @default(true)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
   @@index([category])
   @@index([isActive])
   @@map("questions")
 }
 
-// ============================================
-// TEST RESULTS
-// ============================================
-
 model TestResult {
-  id              String       @id @default(uuid()) @db.Uuid
-  sessionToken    String       @unique
-  timestamp       DateTime     @default(now())
-  
-  // User responses: [{ questionId: 1, score: 5 }, ...]
-  responses       Json         @db.JsonB
-  
-  // RIASEC totals: { R: 24, I: 30, A: 20, S: 34, E: 12, C: 10 }
-  scores          Json         @db.JsonB
-  
-  // Top 3 categories (e.g., "SIA")
-  careerCode      String       @db.VarChar(3)
-  
-  // Matched careers with correlations
-  matchedCareers  Json         @db.JsonB
-  
-  // Job preferences submitted by user
-  jobPreferences  Json?        @db.JsonB
-  
-  // Analytics metadata
-  completionTime  Int?
-  deviceType      String?      @db.VarChar(50)
-  
-  // Tier based on total score
-  tier            String?      @db.VarChar(20)
-  totalScore      Int?
-  
-  // Relation to session
-  session         TestSession  @relation(fields: [sessionToken], references: [sessionToken], onDelete: Cascade)
-  
+  id             String      @id @default(uuid()) @db.Uuid
+  timestamp      DateTime    @default(now())
+  responses      Json
+  scores         Json
+  careerCode     String      @db.VarChar(3)
+  matchedCareers Json
+  completionTime Int?
+  deviceType     String?     @db.VarChar(50)
+  jobPreferences Json?
+  sessionToken   String      @unique
+  tier           String?     @db.VarChar(20)
+  totalScore     Int?
+  session        TestSession @relation(fields: [sessionToken], references: [sessionToken], onDelete: Cascade)
+
   @@index([timestamp])
   @@index([careerCode])
   @@index([sessionToken])
@@ -114,37 +56,42 @@ model TestResult {
   @@map("test_results")
 }
 
-// ============================================
-// CAREER PROFILES
-// ============================================
-
 model CareerProfile {
   id          Int      @id @default(autoincrement())
   careerName  String   @unique @db.VarChar(200)
-  
-  // RIASEC profile: { R: 35, I: 20, A: 10, S: 25, E: 15, C: 30 }
-  profile     Json     @db.JsonB
-  
-  // Education/Training Level
-  jobZone     Int      @db.SmallInt  // 1-5
+  profile     Json
+  jobZone     Int      @db.SmallInt
   jobTier     Int      @default(1) @db.SmallInt
-  
-  // Career description
-  description String   @db.Text
-  
-  // O*NET code
+  description String
   onetCode    String?  @db.VarChar(20)
-  
-  // Tags for filtering
   tags        String[] @default([])
-  
-  // Metadata
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+
   @@index([jobZone])
   @@index([jobTier])
   @@index([isActive])
   @@map("career_profiles")
+}
+
+enum RIASECCategory {
+  R
+  I
+  A
+  S
+  E
+  C
+}
+
+enum MatchType {
+  BEST_FIT
+  GREAT_FIT
+  GOOD_FIT
+}
+
+enum SessionStatus {
+  STARTED
+  COMPLETED
+  EXPIRED
 }
