@@ -52,15 +52,13 @@ async function main() {
           id: parseInt(row.id),
           category: row.category as RIASECCategory,
           text: row.text,
-    
-          // FIXED BOOLEAN PARSING
           isActive: ['t', 'true', '1', 'yes', 'y'].includes(
             row.is_active?.toString().trim().toLowerCase()
           ),
         },
       });
     }
-    
+
     console.log(`✅ Imported ${questionsData.length} questions`);
   } else {
     console.log('⚠️  questions.csv not found, skipping...');
@@ -73,32 +71,71 @@ async function main() {
     const careersData = parse(careersCSV, {
       columns: true,
       skip_empty_lines: true,
+      relax_quotes: true,
+      escape: '"',
+      quote: '"'
     }) as CareerProfileCSV[];
 
     for (const row of careersData) {
-      // Parse tags (PostgreSQL array format: {tag1,tag2})
-      let tags: string[] = [];
-      if (row.tags) {
-        const tagsStr = row.tags.replace(/[{}]/g, '');
-        tags = tagsStr.split(',').filter(t => t.trim());
-      }
+      try {
+        // Parse tags (PostgreSQL array format: {tag1,tag2} or ["tag1","tag2"])
+        let tags: string[] = [];
+        if (row.tags) {
+          // Remove brackets and quotes, then split
+          const tagsStr = row.tags
+            .replace(/[\[\]{}]/g, '')
+            .replace(/""""/g, '"')
+            .replace(/"/g, '');
+          tags = tagsStr.split(',').map(t => t.trim()).filter(t => t);
+        }
 
-      await prisma.careerProfile.upsert({
-        where: { id: parseInt(row.id) },
-        update: {},
-        create: {
-          id: parseInt(row.id),
-          careerName: row.careerName,                
-          profile: JSON.parse(row.profile),
-          jobZone: parseInt(row.jobZone),            
-          jobTier: parseInt(row.jobTier),            
-          description: row.description,
-          onetCode: row.onetCode || null,            
-          tags: tags,
-          isActive: row.isActive === 't' || row.isActive === 'true',
-        },
-      });
+        // Clean and parse profile JSON
+        let profileJson;
+        let cleanProfile; // Declare cleanProfile in a broader scope
+        try {
+          // Handle various quote escaping scenarios
+          cleanProfile = row.profile;
+          
+          // Remove outer quotes if present
+          cleanProfile = cleanProfile.replace(/^"/, '').replace(/"$/, '');
+          
+          // Replace all escaped quotes: "" -> "
+          cleanProfile = cleanProfile.replace(/""/g, '"');
+          
+          // If still has issues, try more aggressive cleaning
+          if (cleanProfile.includes('""')) {
+            cleanProfile = cleanProfile.replace(/""/g, '"');
+          }
+          
+          console.log(`Parsing profile for ${row.careerName}:`, cleanProfile);
+          profileJson = JSON.parse(cleanProfile);
+        } catch (err) {
+          console.error(`Failed to parse profile for ${row.careerName}:`, row.profile);
+          console.error(`After cleaning:`, cleanProfile);
+          throw err;
+        }
+
+        await prisma.careerProfile.upsert({
+          where: { id: parseInt(row.id) },
+          update: {},
+          create: {
+            id: parseInt(row.id),
+            careerName: row.careerName,
+            profile: profileJson,
+            jobZone: parseInt(row.jobZone),
+            jobTier: parseInt(row.jobTier),
+            description: row.description,
+            onetCode: row.onetCode || null,
+            tags: tags,
+            isActive: row.isActive === 't' || row.isActive === 'true',
+          },
+        });
+      } catch (error) {
+        console.error(`Error processing career profile ${row.id} (${row.careerName}):`, error);
+        throw error;
+      }
     }
+
     console.log(`✅ Imported ${careersData.length} career profiles`);
   } else {
     console.log('⚠️  career_profiles.csv not found, skipping...');
