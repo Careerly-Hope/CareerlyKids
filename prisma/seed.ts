@@ -9,9 +9,9 @@ interface QuestionCSV {
   id: string;
   category: string;
   text: string;
-  is_active: string;
-  created_at: string;
-  updated_at: string;
+  isActive: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface CareerProfileCSV {
@@ -53,7 +53,7 @@ async function main() {
           category: row.category as RIASECCategory,
           text: row.text,
           isActive: ['t', 'true', '1', 'yes', 'y'].includes(
-            row.is_active?.toString().trim().toLowerCase()
+            row.isActive?.toString().trim().toLowerCase()
           ),
         },
       });
@@ -91,23 +91,15 @@ async function main() {
 
         // Clean and parse profile JSON
         let profileJson;
-        let cleanProfile; // Declare cleanProfile in a broader scope
+        let cleanProfile = row.profile;
+        
         try {
-          // Handle various quote escaping scenarios
-          cleanProfile = row.profile;
-          
           // Remove outer quotes if present
           cleanProfile = cleanProfile.replace(/^"/, '').replace(/"$/, '');
           
           // Replace all escaped quotes: "" -> "
           cleanProfile = cleanProfile.replace(/""/g, '"');
           
-          // If still has issues, try more aggressive cleaning
-          if (cleanProfile.includes('""')) {
-            cleanProfile = cleanProfile.replace(/""/g, '"');
-          }
-          
-          console.log(`Parsing profile for ${row.careerName}:`, cleanProfile);
           profileJson = JSON.parse(cleanProfile);
         } catch (err) {
           console.error(`Failed to parse profile for ${row.careerName}:`, row.profile);
