@@ -7,7 +7,7 @@ services:
     plan: free
     branch: main
     buildCommand: npm install && npx prisma generate && npm run build
-    startCommand: npx prisma migrate deploy && npm run start:prod
+    startCommand: npx prisma migrate resolve --applied "20251113155144_init" && npx prisma migrate resolve --applied "20251114115422_add_careerly_schema" && npx prisma migrate deploy && npm run start:prod
     envVars:
       - key: NODE_ENV
         value: production
@@ -16,7 +16,6 @@ services:
       - key: DATABASE_URL
         sync: false
     healthCheckPath: /health
-
   # Staging Service
   - type: web
     name: careerlykids-staging
@@ -25,7 +24,7 @@ services:
     plan: free
     branch: staging
     buildCommand: npm install && npx prisma generate && npm run build
-    startCommand: npx prisma migrate deploy && npm run start:prod
+    startCommand: npx prisma migrate resolve --applied "20251113155144_init" && npx prisma migrate resolve --applied "20251114115422_add_careerly_schema" && npx prisma migrate deploy && npm run start:prod
     envVars:
       - key: NODE_ENV
         value: staging
