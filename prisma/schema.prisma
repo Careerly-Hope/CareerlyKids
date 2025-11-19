@@ -35,19 +35,20 @@ model Question {
 }
 
 model TestResult {
-  id             String      @id @default(uuid()) @db.Uuid
-  timestamp      DateTime    @default(now())
-  responses      Json
-  scores         Json
-  careerCode     String      @db.VarChar(3)
-  matchedCareers Json
-  completionTime Int?
-  deviceType     String?     @db.VarChar(50)
-  jobPreferences Json?
-  sessionToken   String      @unique
-  tier           String?     @db.VarChar(20)
-  totalScore     Int?
-  session        TestSession @relation(fields: [sessionToken], references: [sessionToken], onDelete: Cascade)
+  id               String      @id @default(uuid()) @db.Uuid
+  timestamp        DateTime    @default(now())
+  responses        Json
+  scores           Json
+  careerCode       String      @db.VarChar(3)
+  matchedCareers   Json
+  completionTime   Int?
+  deviceType       String?     @db.VarChar(50)
+  jobPreferences   Json?
+  sessionToken     String      @unique
+  tier             String?     @db.VarChar(20)
+  totalScore       Int?
+  aiRecommendation Json?     
+  session          TestSession @relation(fields: [sessionToken], references: [sessionToken], onDelete: Cascade)
 
   @@index([timestamp])
   @@index([careerCode])
