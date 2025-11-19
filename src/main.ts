@@ -34,10 +34,8 @@ async function bootstrap() {
     .setTitle('CareerlyKids API')
     .setDescription('API documentation for CareerlyKids application')
     .setVersion('1.0')
-    .addTag('assessments', 'RIASEC career assessment endpoints')
-    .addTag('statistics', 'Analytics and statistics endpoints')
-    .addTag('health', 'Health check and monitoring endpoints')
-    .addBearerAuth()
+    .addTag('careerlykids')
+    .addBearerAuth() // If you'll use JWT authentication later
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
