@@ -1,3 +1,4 @@
+// src/modules/assessments/assessments.service.ts
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SessionStatus } from '@prisma/client';
@@ -5,12 +6,16 @@ import { scoreTest, validateResponses } from '../scoring/utils/riasec-scoring.ut
 import { findCareerMatches } from '../matching/utils/career-matching.util';
 import { SubmitTestDto } from './dto/submit-assessment.dto';
 import { randomBytes } from 'crypto';
+import { AiService } from '../ai/ai.service';
 
 @Injectable()
 export class AssessmentsService {
   private readonly logger = new Logger(AssessmentsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly aiService: AiService,
+  ) {}
 
   async startTest() {
     const startTime = Date.now();
@@ -160,7 +165,20 @@ export class AssessmentsService {
       10,
     );
 
-    // ✅ SAVE RESULT with proper type casting
+    // ✅ NEW: Generate AI stream recommendation
+    this.logger.log('🤖 Generating AI stream recommendation...');
+    const streamRecommendation = await this.aiService.generateStreamRecommendation({
+      careerCode: scoringResult.careerCode,
+      scores: scoringResult.scores,
+      topMatches: matches.slice(0, 3).map((m) => ({
+        careerName: m.careerName,
+        tags: m.tags,
+      })),
+      tier: scoringResult.tier,
+    });
+    this.logger.log(`✅ AI recommended: ${streamRecommendation.recommendedStream}`);
+
+    // ✅ SAVE RESULT with proper type casting and AI recommendation
     const result = await this.prisma.$transaction(async (tx) => {
       await tx.testSession.update({
         where: { id: session.id },
@@ -171,13 +189,15 @@ export class AssessmentsService {
         data: {
           sessionToken: dto.sessionToken,
           responses: dto.responses as any,
-          scores: scoringResult.scores as any, // ✅ Fix TypeScript error
+          scores: scoringResult.scores as any,
           careerCode: scoringResult.careerCode,
           matchedCareers: matches as any,
           jobPreferences: dto.jobPreferences || null,
           tier: scoringResult.tier,
           totalScore: scoringResult.totalScore,
           completionTime: Math.floor((Date.now() - startTime) / 1000),
+          // Store AI recommendation in a JSON field (you may need to add this to your Prisma schema)
+          aiRecommendation: streamRecommendation as any,
         },
       });
     });
@@ -192,6 +212,7 @@ export class AssessmentsService {
       tier: scoringResult.tier,
       matches,
       statistics,
+      streamRecommendation, // ✅ NEW: Include AI recommendation in response
       submittedAt: result.timestamp.toISOString(),
     };
   }
@@ -207,6 +228,7 @@ export class AssessmentsService {
         tier: true,
         matchedCareers: true,
         timestamp: true,
+        aiRecommendation: true, // ✅ NEW: Include AI recommendation
       },
     });
 
@@ -221,6 +243,7 @@ export class AssessmentsService {
       totalScore: result.totalScore,
       tier: result.tier,
       matches: result.matchedCareers,
+      streamRecommendation: result.aiRecommendation, // ✅ NEW: Include in response
       submittedAt: result.timestamp.toISOString(),
     };
   }
@@ -287,10 +310,6 @@ export class AssessmentsService {
       ),
     };
   }
-
-  // private generateSessionToken(): string {
-  //   return crypto.randomUUID();
-  // }
 
   async cleanupExpiredSessions(): Promise<number> {
     const result = await this.prisma.testSession.deleteMany({

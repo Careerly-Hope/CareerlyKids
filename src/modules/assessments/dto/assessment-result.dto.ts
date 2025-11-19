@@ -1,3 +1,4 @@
+// src/modules/assessments/dto/assessment-result.dto.ts
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CareerMatchDto {
@@ -45,6 +46,33 @@ export class MatchStatisticsDto {
   avgCorrelation: number;
 }
 
+// ✅ NEW: Stream recommendation DTO
+export class StreamRecommendationDto {
+  @ApiProperty({
+    example: 'Science',
+    enum: ['Art', 'Science', 'Commercial'],
+    description: 'Recommended academic stream',
+  })
+  recommendedStream: 'Art' | 'Science' | 'Commercial';
+
+  @ApiProperty({
+    example:
+      'Based on your high Investigative and Realistic scores, Science stream is the best fit. Your interest in problem-solving and technical work aligns perfectly with subjects like Physics, Chemistry, and Mathematics.',
+    description: 'Explanation for the recommendation',
+  })
+  reasoning: string;
+
+  @ApiProperty({
+    example: { art: 65, science: 85, commercial: 45 },
+    description: 'Alignment scores for each stream (0-100)',
+  })
+  streamAlignment: {
+    art: number;
+    science: number;
+    commercial: number;
+  };
+}
+
 export class TestResultDto {
   @ApiProperty({ example: 'abc-123-def-456' })
   resultId: string;
@@ -68,6 +96,9 @@ export class TestResultDto {
 
   @ApiProperty({ type: MatchStatisticsDto })
   statistics: MatchStatisticsDto;
+
+  @ApiProperty({ type: StreamRecommendationDto }) // ✅ NEW
+  streamRecommendation: StreamRecommendationDto;
 
   @ApiProperty({ example: '2024-01-15T10:30:00.000Z' })
   submittedAt: string;
