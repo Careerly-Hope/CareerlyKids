@@ -60,7 +60,7 @@ jobs:
             else if (title.startsWith('revert')) label = 'revert';
             else label = 'needs-label';
 
-            await github.issues.addLabels({
+      await github.rest.issues.addLabels({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: pr.number,
