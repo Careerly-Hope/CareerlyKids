@@ -7,6 +7,7 @@ import { findCareerMatches } from '../matching/utils/career-matching.util';
 import { SubmitTestDto } from './dto/submit-assessment.dto';
 import { randomBytes } from 'crypto';
 import { AiService } from '../ai/ai.service';
+import { FeedBackDto } from './dto/submit-feedback.dto';
 
 @Injectable()
 export class AssessmentsService {
@@ -322,4 +323,36 @@ export class AssessmentsService {
     this.logger.log(`Cleaned up ${result.count} expired sessions`);
     return result.count;
   }
+
+
+
+  // src/modules/assessments/assessments.service.ts
+// Add this method to your AssessmentsService class
+async submitFeedback(dto: FeedBackDto) {
+  const result = await this.prisma.testResult.findUnique({
+    where: { sessionToken: dto.sessionToken },  // Now matches DTO field
+  });
+
+  if (!result) {
+    throw new NotFoundException('Test result not found');
+  }
+
+  await this.prisma.testResult.update({
+    where: { id: result.id },
+    data: {
+      userFeedback: dto.feedback,
+      feedbackRating: dto.rating,
+      feedbackSubmittedAt: new Date(),
+    },
+  });
+
+  this.logger.log(`✅ Feedback submitted for result ${result.id} - Rating: ${dto.rating}`);
+
+  return {
+    success: true,
+    message: 'Feedback submitted successfully',
+    resultId: result.id,
+    rating: dto.rating,
+  };
+}
 }
