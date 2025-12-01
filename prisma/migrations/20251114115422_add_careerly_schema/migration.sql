@@ -12,7 +12,9 @@ CREATE TYPE "SessionStatus" AS ENUM ('STARTED', 'COMPLETED', 'EXPIRED');
 ALTER TABLE "test_results" ADD COLUMN     "jobPreferences" JSONB,
 ADD COLUMN     "sessionToken" TEXT NOT NULL,
 ADD COLUMN     "tier" VARCHAR(20),
-ADD COLUMN     "totalScore" INTEGER;
+ADD COLUMN     "totalScore" INTEGER,
+ADD COLUMN     "aiRecommendation" JSONB;
+
 
 -- CreateTable
 CREATE TABLE "test_sessions" (

@@ -5,6 +5,7 @@ import { AssessmentsService } from './assessments.service';
 import { SubmitTestDto } from './dto/submit-assessment.dto';
 import { StartTestResponseDto } from './dto/start-assessment.dto';
 import { TestResultDto } from './dto/assessment-result.dto';
+import { FeedBackDto } from './dto/submit-feedback.dto';
 
 @ApiTags('assessments')
 @Controller('api/assessments')
@@ -48,5 +49,21 @@ export class AssessmentsController {
   @ApiResponse({ status: 404, description: 'Result not found' })
   async getResult(@Param('sessionToken') sessionToken: string) {
     return this.assessmentsService.getResult(sessionToken);
+  }
+
+  // src/modules/assessments/controller.module.ts
+  // Replace your feedback endpoint with this corrected version
+
+  @Post('feedback')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Provide feedback and rating of results' })
+  @ApiResponse({
+    status: 200,
+    description: 'Feedback submitted successfully',
+  })
+  @ApiResponse({ status: 400, description: 'Invalid input' })
+  @ApiResponse({ status: 404, description: 'Result not found' })
+  async submitFeedback(@Body() dto: FeedBackDto) {
+    return this.assessmentsService.submitFeedback(dto);
   }
 }

@@ -47,7 +47,10 @@ model TestResult {
   sessionToken     String      @unique
   tier             String?     @db.VarChar(20)
   totalScore       Int?
-  aiRecommendation Json?     
+  aiRecommendation Json?
+  userFeedback     String?     @db.Text
+  feedbackRating   Int?        @db.SmallInt
+  feedbackSubmittedAt DateTime?
   session          TestSession @relation(fields: [sessionToken], references: [sessionToken], onDelete: Cascade)
 
   @@index([timestamp])
