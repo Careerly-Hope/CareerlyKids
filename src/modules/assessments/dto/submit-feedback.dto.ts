@@ -8,7 +8,7 @@ export class FeedBackDto {
     description: 'Session token from test submission',
   })
   @IsString()
-  sessionToken: string;  // Changed from resultId
+  sessionToken: string; // Changed from resultId
 
   @ApiProperty({
     example: 'I was satisfied with the results',

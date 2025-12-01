@@ -51,23 +51,19 @@ export class AssessmentsController {
     return this.assessmentsService.getResult(sessionToken);
   }
 
+  // src/modules/assessments/controller.module.ts
+  // Replace your feedback endpoint with this corrected version
 
-// src/modules/assessments/controller.module.ts
-// Replace your feedback endpoint with this corrected version
-
-@Post('feedback')
-@HttpCode(HttpStatus.OK)
-@ApiOperation({ summary: 'Provide feedback and rating of results' })
-@ApiResponse({
-  status: 200,
-  description: 'Feedback submitted successfully',
-})
-@ApiResponse({ status: 400, description: 'Invalid input' })
-@ApiResponse({ status: 404, description: 'Result not found' })
-async submitFeedback(@Body() dto: FeedBackDto) {
-  return this.assessmentsService.submitFeedback(dto); 
-}
-
-  
-
+  @Post('feedback')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Provide feedback and rating of results' })
+  @ApiResponse({
+    status: 200,
+    description: 'Feedback submitted successfully',
+  })
+  @ApiResponse({ status: 400, description: 'Invalid input' })
+  @ApiResponse({ status: 404, description: 'Result not found' })
+  async submitFeedback(@Body() dto: FeedBackDto) {
+    return this.assessmentsService.submitFeedback(dto);
+  }
 }
