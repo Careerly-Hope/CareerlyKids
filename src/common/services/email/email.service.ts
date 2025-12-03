@@ -75,8 +75,8 @@ export class EmailService {
 
     const greeting = name ? `Hi ${name}` : 'Hello';
 
-    const dynamicAssessmentUrl=`${this.assessmentUrl}?token=${token}`;
-    const expiryDate = expiresAt.toLocaleDateString('en-US', {
+    const dynamicAssessmentUrl = `${this.assessmentUrl}/${token}`;
+        const expiryDate = expiresAt.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
