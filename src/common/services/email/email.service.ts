@@ -33,8 +33,8 @@ export class EmailService {
     this.fromEmail = this.configService.get<string>('FROM_EMAIL');
     this.supportEmail = this.configService.get<string>('SUPPORT_EMAIL');
     this.assessmentUrl = this.configService.get<string>(
-      'ASSESSMENT_URL',
-      'https://careerlyai.app/assessment/result',
+      `ASSESSMENT_URL`,
+      // 'https://careerlyai.app/assessment/result',
     );
   }
 
@@ -75,6 +75,7 @@ export class EmailService {
 
     const greeting = name ? `Hi ${name}` : 'Hello';
 
+    const dynamicAssessmentUrl=`${this.assessmentUrl}?token=${token}`;
     const expiryDate = expiresAt.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
@@ -132,7 +133,7 @@ export class EmailService {
               </div>
 
               <div style="text-align:center; margin:30px 0;">
-                <a href="${this.assessmentUrl}"
+                <a href="${dynamicAssessmentUrl}"
                    style="background:#667eea; color:#fff; padding:12px 25px; text-decoration:none; border-radius:6px;">
                   View Your Results
                 </a>
