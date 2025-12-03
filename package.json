@@ -29,6 +29,8 @@
   },
   "dependencies": {
     "@ai-sdk/groq": "^2.0.29",
+    "@nestjs/cli": "^10.0.0",
+
     "@nestjs/axios": "^3.0.2",
     "@nestjs/common": "^10.0.0",
     "@nestjs/config": "^3.2.3",
@@ -51,7 +53,6 @@
     "zod": "^4.1.12"
   },
   "devDependencies": {
-    "@nestjs/cli": "^10.0.0",
     "@nestjs/schematics": "^10.0.0",
     "@nestjs/testing": "^10.0.0",
     "@types/express": "^4.17.17",
