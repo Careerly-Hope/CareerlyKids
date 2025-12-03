@@ -1,3 +1,6 @@
+// ----------------------------------
+// GENERATOR & DATASOURCE
+// ----------------------------------
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,78 +10,9 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model TestSession {
-  id           String        @id @default(uuid())
-  sessionToken String        @unique
-  startedAt    DateTime      @default(now())
-  expiresAt    DateTime
-  status       SessionStatus @default(STARTED)
-  result       TestResult?
-
-  @@index([sessionToken])
-  @@index([expiresAt])
-  @@index([status])
-  @@map("test_sessions")
-}
-
-model Question {
-  id        Int            @id @default(autoincrement())
-  category  RIASECCategory
-  text      String         @db.VarChar(500)
-  isActive  Boolean        @default(true)
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
-
-  @@index([category])
-  @@index([isActive])
-  @@map("questions")
-}
-
-model TestResult {
-  id               String      @id @default(uuid()) @db.Uuid
-  timestamp        DateTime    @default(now())
-  responses        Json
-  scores           Json
-  careerCode       String      @db.VarChar(3)
-  matchedCareers   Json
-  completionTime   Int?
-  deviceType       String?     @db.VarChar(50)
-  jobPreferences   Json?
-  sessionToken     String      @unique
-  tier             String?     @db.VarChar(20)
-  totalScore       Int?
-  aiRecommendation Json?
-  userFeedback     String?     @db.Text
-  feedbackRating   Int?        @db.SmallInt
-  feedbackSubmittedAt DateTime?
-  session          TestSession @relation(fields: [sessionToken], references: [sessionToken], onDelete: Cascade)
-
-  @@index([timestamp])
-  @@index([careerCode])
-  @@index([sessionToken])
-  @@index([tier])
-  @@map("test_results")
-}
-
-model CareerProfile {
-  id          Int      @id @default(autoincrement())
-  careerName  String   @unique @db.VarChar(200)
-  profile     Json
-  jobZone     Int      @db.SmallInt
-  jobTier     Int      @default(1) @db.SmallInt
-  description String
-  onetCode    String?  @db.VarChar(20)
-  tags        String[] @default([])
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@index([jobZone])
-  @@index([jobTier])
-  @@index([isActive])
-  @@map("career_profiles")
-}
-
+// ----------------------------------
+// ENUMS
+// ----------------------------------
 enum RIASECCategory {
   R
   I
@@ -98,4 +32,191 @@ enum SessionStatus {
   STARTED
   COMPLETED
   EXPIRED
+}
+
+enum TokenType {
+  INDIVIDUAL
+  ENTERPRISE
+}
+
+enum TokenStatus {
+  ACTIVE
+  USED
+  EXPIRED
+  REVOKED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+// ----------------------------------
+// CORE MODELS
+// ----------------------------------
+
+// QUESTIONS
+model Question {
+  id        Int            @id @default(autoincrement())
+  category  RIASECCategory
+  text      String         @db.VarChar(500)
+
+  isActive  Boolean        @default(true)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@index([category])
+  @@index([isActive])
+  @@map("questions")
+}
+
+// CAREER PROFILES
+model CareerProfile {
+  id          Int       @id @default(autoincrement())
+  careerName  String    @unique @db.VarChar(200)
+
+  profile     Json
+  description String
+
+  jobZone     Int       @db.SmallInt
+  jobTier     Int       @default(1) @db.SmallInt
+
+  onetCode    String?   @db.VarChar(20)
+  tags        String[]  @default([])
+
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([jobZone])
+  @@index([jobTier])
+  @@index([isActive])
+  @@map("career_profiles")
+}
+
+// ----------------------------------
+// TESTING WORKFLOW
+// ----------------------------------
+
+// TEST SESSION
+model TestSession {
+  id           String        @id @default(uuid())
+  sessionToken String        @unique
+
+  startedAt    DateTime      @default(now())
+  expiresAt    DateTime
+  status       SessionStatus @default(STARTED)
+
+  result       TestResult?
+
+  @@index([sessionToken])
+  @@index([expiresAt])
+  @@index([status])
+  @@map("test_sessions")
+}
+
+// TEST RESULT
+model TestResult {
+  id               String      @id @default(uuid()) @db.Uuid
+  timestamp        DateTime    @default(now())
+
+  responses        Json
+  scores           Json
+  careerCode       String      @db.VarChar(3)
+  matchedCareers   Json
+  totalScore       Int?
+
+  completionTime   Int?
+  deviceType       String?     @db.VarChar(50)
+  jobPreferences   Json?
+
+  sessionToken     String      @unique
+
+  tier             String?     @db.VarChar(20)
+  aiRecommendation Json?
+
+  userFeedback        String?   @db.Text
+  feedbackRating      Int?      @db.SmallInt
+  feedbackSubmittedAt DateTime?
+
+  // Relations
+  session          TestSession @relation(fields: [sessionToken], references: [sessionToken], onDelete: Cascade)
+  unlockedBy       TokenUsage[]
+
+  @@index([timestamp])
+  @@index([careerCode])
+  @@index([sessionToken])
+  @@index([tier])
+  @@map("test_results")
+}
+
+// ----------------------------------
+// TOKEN USAGE TRACKING
+// ----------------------------------
+model TokenUsage {
+  id            String      @id @default(uuid()) @db.Uuid
+  
+  tokenId       String      @db.Uuid
+  sessionToken  String
+  
+  firstName     String      @db.VarChar(100)
+  lastName      String      @db.VarChar(100)
+  class         String      @db.VarChar(50)
+
+  unlockedAt    DateTime    @default(now())
+  lastViewedAt  DateTime    @default(now())
+  viewCount     Int         @default(1)
+  ipAddress     String?     @db.VarChar(45)
+
+  token         AccessToken @relation(fields: [tokenId], references: [id], onDelete: Cascade)
+  result        TestResult  @relation(fields: [sessionToken], references: [sessionToken], onDelete: Cascade)
+
+  @@unique([tokenId, sessionToken], name: "unique_token_session")
+  @@index([tokenId])
+  @@index([sessionToken])
+  @@index([unlockedAt])
+  @@index([class])
+
+  @@map("token_usage")
+}
+
+// ----------------------------------
+// ACCESS TOKENS (AUTH / BILLING)
+// ----------------------------------
+model AccessToken {
+  id            String      @id @default(uuid()) @db.Uuid
+  token         String      @unique @db.VarChar(100)
+  email         String      @db.VarChar(255)
+  name          String?     @db.VarChar(255)
+  school        String?
+
+  type          TokenType   @default(INDIVIDUAL)
+  status        TokenStatus @default(ACTIVE)
+
+  usageCount    Int         @default(0) @db.SmallInt
+  maxUsage      Int         @db.SmallInt
+
+  createdAt     DateTime    @default(now())
+  firstUsedAt   DateTime?
+  lastUsedAt    DateTime?
+  expiresAt     DateTime
+
+  paymentId     String?        @db.VarChar(100)
+  paymentStatus PaymentStatus?
+  amount        Decimal?       @db.Decimal(10, 2)
+  currency      String?        @default("USD") @db.VarChar(3)
+
+  metadata      Json?          @default("{}")
+
+  usages        TokenUsage[]
+
+  @@index([token])
+  @@index([email])
+  @@index([status])
+  @@index([type])
+  @@index([expiresAt])
+  @@index([createdAt])
+  @@map("access_tokens")
 }

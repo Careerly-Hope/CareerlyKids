@@ -5,9 +5,10 @@ import { AssessmentsController } from './assessments.controller';
 import { PrismaModule } from '../../prisma/prisma.module';
 // import { StatsController } from './stats.controller';
 import { AiModule } from '../ai/ai.module'; // ✅ NEW: Import AI module
+import { AccessTokensModule } from '../access-tokens/access-token.module';
 
 @Module({
-  imports: [PrismaModule, AiModule], // ✅ NEW: Add AI module
+  imports: [PrismaModule, AiModule, AccessTokensModule], // ✅ NEW: Add AI module
   controllers: [AssessmentsController],
   providers: [AssessmentsService],
   exports: [AssessmentsService],

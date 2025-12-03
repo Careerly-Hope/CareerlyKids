@@ -45,6 +45,7 @@
     "dotenv": "^17.2.3",
     "prisma": "^6.19.0",
     "reflect-metadata": "^0.2.0",
+    "resend": "^6.5.2",
     "rxjs": "^7.8.1",
     "swagger-ui-express": "^5.0.1",
     "zod": "^4.1.12"
