@@ -8,6 +8,8 @@ import { SubmitTestDto } from './dto/submit-assessment.dto';
 import { randomBytes } from 'crypto';
 import { AiService } from '../ai/ai.service';
 import { FeedBackDto } from './dto/submit-feedback.dto';
+import { GetResultDto } from './dto/get-results.dto';
+import { AccessTokensService } from '../access-tokens/access-token.service';
 
 @Injectable()
 export class AssessmentsService {
@@ -16,6 +18,7 @@ export class AssessmentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiService: AiService,
+    private readonly accessTokensService: AccessTokensService,
   ) {}
 
   async startTest() {
@@ -127,7 +130,6 @@ export class AssessmentsService {
       throw new BadRequestException('Session expired');
     }
 
-    // ✅ BETTER ERROR MESSAGE for missing/invalid questions
     if (questions.length !== 60) {
       const foundIds = new Set(questions.map((q) => q.id));
       const missingIds = questionIds.filter((id) => !foundIds.has(id));
@@ -166,7 +168,6 @@ export class AssessmentsService {
       10,
     );
 
-    // ✅ NEW: Generate AI stream recommendation
     this.logger.log('🤖 Generating AI stream recommendation...');
     const streamRecommendation = await this.aiService.generateStreamRecommendation({
       careerCode: scoringResult.careerCode,
@@ -179,7 +180,6 @@ export class AssessmentsService {
     });
     this.logger.log(`✅ AI recommended: ${streamRecommendation.recommendedStream}`);
 
-    // ✅ SAVE RESULT with proper type casting and AI recommendation
     const result = await this.prisma.$transaction(async (tx) => {
       await tx.testSession.update({
         where: { id: session.id },
@@ -197,7 +197,6 @@ export class AssessmentsService {
           tier: scoringResult.tier,
           totalScore: scoringResult.totalScore,
           completionTime: Math.floor((Date.now() - startTime) / 1000),
-          // Store AI recommendation in a JSON field (you may need to add this to your Prisma schema)
           aiRecommendation: streamRecommendation as any,
         },
       });
@@ -213,14 +212,34 @@ export class AssessmentsService {
       tier: scoringResult.tier,
       matches,
       statistics,
-      streamRecommendation, // ✅ NEW: Include AI recommendation in response
+      streamRecommendation,
       submittedAt: result.timestamp.toISOString(),
     };
   }
 
-  async getResult(sessionToken: string) {
+  async getResultWithToken(dto: GetResultDto) {
+    this.logger.log(
+      `🔑 Result request: ${dto.firstName} ${dto.lastName} (${dto.class}) - Token: ${dto.accessToken}`,
+    );
+
+    // Step 1: Validate access token
+    const tokenValidation = await this.accessTokensService.validateToken(dto.accessToken);
+
+    if (!tokenValidation.valid) {
+      throw new BadRequestException({
+        message: 'Invalid or expired access token',
+        reason: tokenValidation.reason,
+      });
+    }
+
+    const token = tokenValidation.token!;
+    this.logger.log(
+      `✅ Token valid: ${token.type} - ${token.school || 'N/A'} (${token.usageCount}/${token.maxUsage})`,
+    );
+
+    // Step 2: Fetch test result
     const result = await this.prisma.testResult.findUnique({
-      where: { sessionToken },
+      where: { sessionToken: dto.sessionToken },
       select: {
         id: true,
         careerCode: true,
@@ -229,23 +248,200 @@ export class AssessmentsService {
         tier: true,
         matchedCareers: true,
         timestamp: true,
-        aiRecommendation: true, // ✅ NEW: Include AI recommendation
+        aiRecommendation: true,
       },
     });
 
     if (!result) {
-      throw new NotFoundException('Result not found');
+      throw new NotFoundException('Test result not found for this session');
     }
 
+    // Step 3: Check if this token has already unlocked this result
+    const existingUsage = await this.prisma.tokenUsage.findUnique({
+      where: {
+        unique_token_session: {
+          tokenId: token.id,
+          sessionToken: dto.sessionToken,
+        },
+      },
+    });
+
+    let isReview = false;
+    let viewCount = 1;
+    let unlockedAt = new Date();
+
+    if (existingUsage) {
+      // Already unlocked - this is a REVIEW
+      isReview = true;
+      viewCount = existingUsage.viewCount + 1;
+      unlockedAt = existingUsage.unlockedAt;
+
+      this.logger.log(
+        `♻️ Review access: Already unlocked on ${unlockedAt.toISOString()} (view #${viewCount})`,
+      );
+
+      // Update view count and lastViewedAt (does NOT increment usageCount)
+      await this.prisma.tokenUsage.update({
+        where: { id: existingUsage.id },
+        data: {
+          viewCount: viewCount,
+          lastViewedAt: new Date(),
+        },
+      });
+    } else {
+      // First time unlocking - CREATE NEW USAGE (this WILL increment usageCount)
+      this.logger.log(`🆕 New unlock: Creating TokenUsage record`);
+
+      await this.prisma.$transaction(async (tx) => {
+        // Create usage record
+        await tx.tokenUsage.create({
+          data: {
+            tokenId: token.id,
+            sessionToken: dto.sessionToken,
+            firstName: dto.firstName,
+            lastName: dto.lastName,
+            class: dto.class,
+            viewCount: 1,
+            unlockedAt: new Date(),
+            lastViewedAt: new Date(),
+          },
+        });
+
+        // Increment token usage count (ONLY for new unlocks)
+        await this.accessTokensService.markTokenUsed(dto.accessToken);
+      });
+
+      this.logger.log(
+        `✅ Result unlocked: ${dto.firstName} ${dto.lastName} (${dto.class}) → ${result.id}`,
+      );
+    }
+
+    // Step 4: Return result with student info and access metadata
     return {
+      // Student info
+      firstName: dto.firstName,
+      lastName: dto.lastName,
+      class: dto.class,
+
+      // Test results
       resultId: result.id,
       careerCode: result.careerCode,
-      scores: result.scores,
+      scores: result.scores as Record<string, number>,
       totalScore: result.totalScore,
       tier: result.tier,
       matches: result.matchedCareers,
-      streamRecommendation: result.aiRecommendation, // ✅ NEW: Include in response
+      streamRecommendation: result.aiRecommendation,
       submittedAt: result.timestamp.toISOString(),
+
+      // Access info
+      accessInfo: {
+        tokenType: token.type,
+        school: token.school,
+        isReview: isReview,
+        unlockedAt: unlockedAt.toISOString(),
+        viewCount: viewCount,
+        remainingUsage: token.maxUsage - (isReview ? token.usageCount : token.usageCount + 1),
+        expiresAt: token.expiresAt.toISOString(),
+      },
+    };
+  }
+
+  /**
+   * Get detailed usage report for a specific token
+   * Shows all students who have unlocked results with this token
+   */
+  async getTokenUsageReport(tokenString: string) {
+    const token = await this.prisma.accessToken.findUnique({
+      where: { token: tokenString },
+      include: {
+        usages: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            class: true,
+            sessionToken: true,
+            unlockedAt: true,
+            lastViewedAt: true,
+            viewCount: true,
+          },
+          orderBy: { unlockedAt: 'desc' },
+        },
+      },
+    });
+
+    if (!token) {
+      throw new NotFoundException('Token not found');
+    }
+
+    return {
+      // Token info
+      token: token.token,
+      school: token.school,
+      type: token.type,
+      status: token.status,
+
+      // Usage stats
+      usageCount: token.usageCount,
+      maxUsage: token.maxUsage,
+      remainingUsage: token.maxUsage - token.usageCount,
+
+      // Validity
+      createdAt: token.createdAt,
+      expiresAt: token.expiresAt,
+      firstUsedAt: token.firstUsedAt,
+
+      // Student list
+      totalStudents: token.usages.length,
+      totalViews: token.usages.reduce((sum, u) => sum + u.viewCount, 0),
+      students: token.usages.map((usage) => ({
+        name: `${usage.firstName} ${usage.lastName}`,
+        class: usage.class,
+        sessionToken: usage.sessionToken,
+        unlockedAt: usage.unlockedAt,
+        lastViewedAt: usage.lastViewedAt,
+        viewCount: usage.viewCount,
+      })),
+    };
+  }
+
+  /**
+   * Get usage analytics by class
+   * Helps schools see which classes are using tokens
+   */
+  async getUsageByClass(tokenString: string) {
+    const token = await this.prisma.accessToken.findUnique({
+      where: { token: tokenString },
+    });
+
+    if (!token) {
+      throw new NotFoundException('Token not found');
+    }
+
+    const usageByClass = await this.prisma.tokenUsage.groupBy({
+      by: ['class'],
+      where: { tokenId: token.id },
+      _count: {
+        id: true,
+      },
+      _sum: {
+        viewCount: true,
+      },
+      orderBy: {
+        _count: {
+          id: 'desc',
+        },
+      },
+    });
+
+    return {
+      token: token.token,
+      school: token.school,
+      classes: usageByClass.map((item) => ({
+        class: item.class,
+        studentsUnlocked: item._count.id,
+        totalViews: item._sum.viewCount || 0,
+      })),
     };
   }
 
@@ -324,8 +520,6 @@ export class AssessmentsService {
     return result.count;
   }
 
-  // src/modules/assessments/assessments.service.ts
-  // Add this method to your AssessmentsService class
   async submitFeedback(dto: FeedBackDto) {
     const result = await this.prisma.testResult.findUnique({
       where: { sessionToken: dto.sessionToken }, // Now matches DTO field

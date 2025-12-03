@@ -73,7 +73,73 @@ export class StreamRecommendationDto {
   };
 }
 
+export class AccessInfoDto {
+  @ApiProperty({
+    description: 'Type of access token used',
+    example: 'ENTERPRISE',
+    enum: ['INDIVIDUAL', 'ENTERPRISE'],
+  })
+  tokenType: string;
+
+  @ApiProperty({
+    description: 'School that owns the token',
+    example: 'Lincoln High School',
+    required: false,
+  })
+  school?: string;
+
+  @ApiProperty({
+    description: 'Whether this is a review (result was previously unlocked)',
+    example: false,
+  })
+  isReview: boolean;
+
+  @ApiProperty({
+    description: 'When the result was first unlocked',
+    example: '2024-01-15T10:30:00.000Z',
+  })
+  unlockedAt: string;
+
+  @ApiProperty({
+    description: 'How many times this result has been viewed',
+    example: 3,
+  })
+  viewCount: number;
+
+  @ApiProperty({
+    description: 'Remaining token uses (after this unlock)',
+    example: 7,
+  })
+  remainingUsage: number;
+
+  @ApiProperty({
+    description: 'Token expiration date',
+    example: '2025-01-15T10:30:00.000Z',
+  })
+  expiresAt: string;
+}
+
 export class TestResultDto {
+  // Student information
+  @ApiProperty({
+    description: 'Student first name',
+    example: 'John',
+  })
+  firstName: string;
+
+  @ApiProperty({
+    description: 'Student last name',
+    example: 'Doe',
+  })
+  lastName: string;
+
+  @ApiProperty({
+    description: 'Student class/grade',
+    example: 'Grade 10A',
+  })
+  class: string;
+
+  // Test results
   @ApiProperty({ example: 'abc-123-def-456' })
   resultId: string;
 
@@ -97,9 +163,16 @@ export class TestResultDto {
   @ApiProperty({ type: MatchStatisticsDto })
   statistics: MatchStatisticsDto;
 
-  @ApiProperty({ type: StreamRecommendationDto }) // ✅ NEW
+  @ApiProperty({ type: StreamRecommendationDto })
   streamRecommendation: StreamRecommendationDto;
 
   @ApiProperty({ example: '2024-01-15T10:30:00.000Z' })
   submittedAt: string;
+
+  // Access token metadata
+  @ApiProperty({
+    type: AccessInfoDto,
+    description: 'Information about token access and usage',
+  })
+  accessInfo: AccessInfoDto;
 }
