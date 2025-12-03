@@ -1,6 +1,4 @@
 // src/modules/assessments/assessments.controller.ts
-// Replace the entire controller with this updated version
-
 import { Controller, Get, Post, Body, Query, Param, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { AssessmentsService } from './assessments.service';
@@ -38,6 +36,7 @@ export class AssessmentsController {
       properties: {
         success: { type: 'boolean', example: true },
         sessionToken: { type: 'string', example: 'a3f8d9e2b1c4567890abcdef' },
+        resultId: { type: 'string', example: 'clx123456789' },
         message: {
           type: 'string',
           example: 'Test submitted successfully. Please provide an access token to view results.',
@@ -48,12 +47,15 @@ export class AssessmentsController {
   @ApiResponse({ status: 400, description: 'Invalid input' })
   @ApiResponse({ status: 404, description: 'Session not found' })
   async submitTest(@Body() dto: SubmitTestDto) {
-    // const result = await this.assessmentsService.submitTest(dto);
-
-    // Return success but don't include results (they need token to view)
+    // ✅ FIXED: Actually call the service to save the test result
+    const result = await this.assessmentsService.submitTest(dto);
+    
+    // Return success confirmation without exposing the full results
+    // User needs access token to view the actual results
     return {
       success: true,
       sessionToken: dto.sessionToken,
+      resultId: result.resultId,
       message: 'Test submitted successfully. Please provide an access token to view results.',
     };
   }
