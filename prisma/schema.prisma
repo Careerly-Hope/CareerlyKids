@@ -62,7 +62,6 @@ model Question {
   id        Int            @id @default(autoincrement())
   category  RIASECCategory
   text      String         @db.VarChar(500)
-
   isActive  Boolean        @default(true)
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
@@ -76,16 +75,12 @@ model Question {
 model CareerProfile {
   id          Int       @id @default(autoincrement())
   careerName  String    @unique @db.VarChar(200)
-
   profile     Json
   description String
-
   jobZone     Int       @db.SmallInt
   jobTier     Int       @default(1) @db.SmallInt
-
   onetCode    String?   @db.VarChar(20)
   tags        String[]  @default([])
-
   isActive    Boolean   @default(true)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -104,11 +99,9 @@ model CareerProfile {
 model TestSession {
   id           String        @id @default(uuid())
   sessionToken String        @unique
-
   startedAt    DateTime      @default(now())
   expiresAt    DateTime
   status       SessionStatus @default(STARTED)
-
   result       TestResult?
 
   @@index([sessionToken])
@@ -121,22 +114,17 @@ model TestSession {
 model TestResult {
   id               String      @id @default(uuid()) @db.Uuid
   timestamp        DateTime    @default(now())
-
   responses        Json
   scores           Json
   careerCode       String      @db.VarChar(3)
   matchedCareers   Json
   totalScore       Int?
-
   completionTime   Int?
   deviceType       String?     @db.VarChar(50)
   jobPreferences   Json?
-
   sessionToken     String      @unique
-
   tier             String?     @db.VarChar(20)
   aiRecommendation Json?
-
   userFeedback        String?   @db.Text
   feedbackRating      Int?      @db.SmallInt
   feedbackSubmittedAt DateTime?
@@ -164,7 +152,8 @@ model TokenUsage {
   firstName     String      @db.VarChar(100)
   lastName      String      @db.VarChar(100)
   class         String      @db.VarChar(50)
-
+  parentEmail   String?     @db.VarChar(255)  // ✅ NEW: Optional parent email field
+  
   unlockedAt    DateTime    @default(now())
   lastViewedAt  DateTime    @default(now())
   viewCount     Int         @default(1)
@@ -178,7 +167,7 @@ model TokenUsage {
   @@index([sessionToken])
   @@index([unlockedAt])
   @@index([class])
-
+  @@index([parentEmail])  // ✅ NEW: Index for parent email lookups
   @@map("token_usage")
 }
 
@@ -207,7 +196,6 @@ model AccessToken {
   paymentStatus PaymentStatus?
   amount        Decimal?       @db.Decimal(10, 2)
   currency      String?        @default("USD") @db.VarChar(3)
-
   metadata      Json?          @default("{}")
 
   usages        TokenUsage[]

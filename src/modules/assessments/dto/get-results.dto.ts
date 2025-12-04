@@ -1,5 +1,5 @@
 // src/modules/assessments/dto/get-result.dto.ts
-import { IsString, IsNotEmpty, MaxLength, MinLength } from 'class-validator';
+import { IsString, IsNotEmpty, MaxLength, MinLength, IsEmail, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class GetResultDto {
@@ -55,4 +55,13 @@ export class GetResultDto {
   @IsString()
   @IsNotEmpty()
   sessionToken: string;
+
+  @ApiProperty({
+    description: 'Parent/Guardian email address to receive results (optional)',
+    example: 'parent@example.com',
+    required: false,
+  })
+  @IsEmail()
+  @IsOptional()
+  parentEmail?: string;
 }
