@@ -10,6 +10,7 @@ import { AiService } from '../ai/ai.service';
 import { FeedBackDto } from './dto/submit-feedback.dto';
 import { GetResultDto } from './dto/get-results.dto';
 import { AccessTokensService } from '../access-tokens/access-token.service';
+import { EmailService } from '../../common/services/email/email.service';
 
 @Injectable()
 export class AssessmentsService {
@@ -19,6 +20,7 @@ export class AssessmentsService {
     private readonly prisma: PrismaService,
     private readonly aiService: AiService,
     private readonly accessTokensService: AccessTokensService,
+    private readonly emailService: EmailService,
   ) {}
 
   async startTest() {
@@ -107,6 +109,7 @@ export class AssessmentsService {
 
     // ✅ PARALLEL QUERIES - Fetch session and questions simultaneously
     const questionIds = dto.responses.map((r) => r.questionId);
+
     const [session, questions] = await Promise.all([
       this.prisma.testSession.findUnique({
         where: { sessionToken: dto.sessionToken },
@@ -123,9 +126,11 @@ export class AssessmentsService {
     if (!session) {
       throw new NotFoundException('Invalid session token');
     }
+
     if (session.status === SessionStatus.COMPLETED) {
       throw new BadRequestException('Test already completed');
     }
+
     if (session.expiresAt < new Date()) {
       throw new BadRequestException('Session expired');
     }
@@ -133,7 +138,6 @@ export class AssessmentsService {
     if (questions.length !== 60) {
       const foundIds = new Set(questions.map((q) => q.id));
       const missingIds = questionIds.filter((id) => !foundIds.has(id));
-
       throw new BadRequestException(
         `Invalid or inactive questions: ${missingIds.slice(0, 5).join(', ')}${
           missingIds.length > 5 ? ` and ${missingIds.length - 5} more` : ''
@@ -178,6 +182,7 @@ export class AssessmentsService {
       })),
       tier: scoringResult.tier,
     });
+
     this.logger.log(`✅ AI recommended: ${streamRecommendation.recommendedStream}`);
 
     const result = await this.prisma.$transaction(async (tx) => {
@@ -221,22 +226,20 @@ export class AssessmentsService {
     this.logger.log(
       `🔑 Result request: ${dto.firstName} ${dto.lastName} (${dto.class}) - Token: ${dto.accessToken}`,
     );
-
+    
     // Step 1: Validate access token
     const tokenValidation = await this.accessTokensService.validateToken(dto.accessToken);
-
     if (!tokenValidation.valid) {
       throw new BadRequestException({
         message: 'Invalid or expired access token',
         reason: tokenValidation.reason,
       });
     }
-
     const token = tokenValidation.token!;
     this.logger.log(
       `✅ Token valid: ${token.type} - ${token.school || 'N/A'} (${token.usageCount}/${token.maxUsage})`,
     );
-
+    
     // Step 2: Fetch test result
     const result = await this.prisma.testResult.findUnique({
       where: { sessionToken: dto.sessionToken },
@@ -251,11 +254,11 @@ export class AssessmentsService {
         aiRecommendation: true,
       },
     });
-
+    
     if (!result) {
       throw new NotFoundException('Test result not found for this session');
     }
-
+    
     // Step 3: Check if this token has already unlocked this result
     const existingUsage = await this.prisma.tokenUsage.findUnique({
       where: {
@@ -265,33 +268,32 @@ export class AssessmentsService {
         },
       },
     });
-
+    
     let isReview = false;
     let viewCount = 1;
     let unlockedAt = new Date();
-
+    
     if (existingUsage) {
       // Already unlocked - this is a REVIEW
       isReview = true;
       viewCount = existingUsage.viewCount + 1;
       unlockedAt = existingUsage.unlockedAt;
-
       this.logger.log(
         `♻️ Review access: Already unlocked on ${unlockedAt.toISOString()} (view #${viewCount})`,
       );
-
+      
       // Update view count and lastViewedAt (does NOT increment usageCount)
       await this.prisma.tokenUsage.update({
         where: { id: existingUsage.id },
         data: {
           viewCount: viewCount,
           lastViewedAt: new Date(),
+          ...(dto.parentEmail && { parentEmail: dto.parentEmail }), // Update if provided
         },
       });
     } else {
       // First time unlocking - CREATE NEW USAGE (this WILL increment usageCount)
       this.logger.log(`🆕 New unlock: Creating TokenUsage record`);
-
       await this.prisma.$transaction(async (tx) => {
         // Create usage record
         await tx.tokenUsage.create({
@@ -301,28 +303,70 @@ export class AssessmentsService {
             firstName: dto.firstName,
             lastName: dto.lastName,
             class: dto.class,
+            ...(dto.parentEmail && { parentEmail: dto.parentEmail }), // Only include if provided
             viewCount: 1,
             unlockedAt: new Date(),
             lastViewedAt: new Date(),
           },
         });
-
+        
         // Increment token usage count (ONLY for new unlocks)
         await this.accessTokensService.markTokenUsed(dto.accessToken);
       });
-
+      
       this.logger.log(
         `✅ Result unlocked: ${dto.firstName} ${dto.lastName} (${dto.class}) → ${result.id}`,
       );
+      
+      // Step 4: Send results email to parent (only on first unlock AND if email provided)
+      if (dto.parentEmail) {
+        try {
+          const matches = result.matchedCareers as any[];
+          const aiRecommendation = result.aiRecommendation as any;
+          
+          await this.emailService.sendResults({
+            parentEmail: dto.parentEmail,
+            studentName: `${dto.firstName} ${dto.lastName}`,
+            studentClass: dto.class,
+            school: token.school || undefined,
+            careerCode: result.careerCode,
+            scores: result.scores as Record<string, number>,
+            totalScore: result.totalScore,
+            tier: result.tier || 'N/A',
+            matches: matches.map(m => ({
+              careerName: m.careerName,
+              description: m.description,
+              matchScore: m.matchScore,
+              tags: m.tags || [],
+              jobZone: m.jobZone || 3,
+            })),
+            streamRecommendation: {
+              recommendedStream: aiRecommendation?.recommendedStream || 'N/A',
+              reasoning: aiRecommendation?.reasoning || 'No reasoning available',
+              streamAlignment: aiRecommendation?.streamAlignment || {
+                science: 0,
+                commercial: 0,
+                art: 0,
+              },
+            },
+          });
+          
+          this.logger.log(`📧 Results email sent to ${dto.parentEmail}`);
+        } catch (emailError) {
+          // Log error but don't fail the request
+          this.logger.error(`Failed to send results email: ${emailError.message}`);
+        }
+      } else {
+        this.logger.log(`ℹ️ No parent email provided - skipping results email`);
+      }
     }
-
-    // Step 4: Return result with student info and access metadata
+    
+    // Step 5: Return result with student info and access metadata
     return {
       // Student info
       firstName: dto.firstName,
       lastName: dto.lastName,
       class: dto.class,
-
       // Test results
       resultId: result.id,
       careerCode: result.careerCode,
@@ -332,7 +376,6 @@ export class AssessmentsService {
       matches: result.matchedCareers,
       streamRecommendation: result.aiRecommendation,
       submittedAt: result.timestamp.toISOString(),
-
       // Access info
       accessInfo: {
         tokenType: token.type,
@@ -361,6 +404,7 @@ export class AssessmentsService {
             lastName: true,
             class: true,
             sessionToken: true,
+            parentEmail: true,
             unlockedAt: true,
             lastViewedAt: true,
             viewCount: true,
@@ -397,6 +441,7 @@ export class AssessmentsService {
       students: token.usages.map((usage) => ({
         name: `${usage.firstName} ${usage.lastName}`,
         class: usage.class,
+        parentEmail: usage.parentEmail,
         sessionToken: usage.sessionToken,
         unlockedAt: usage.unlockedAt,
         lastViewedAt: usage.lastViewedAt,
@@ -522,7 +567,7 @@ export class AssessmentsService {
 
   async submitFeedback(dto: FeedBackDto) {
     const result = await this.prisma.testResult.findUnique({
-      where: { sessionToken: dto.sessionToken }, // Now matches DTO field
+      where: { sessionToken: dto.sessionToken },
     });
 
     if (!result) {
