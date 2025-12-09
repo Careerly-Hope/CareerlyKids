@@ -8,8 +8,8 @@ import { TestResultDto } from './dto/assessment-result.dto';
 import { FeedBackDto } from './dto/submit-feedback.dto';
 import { GetResultDto } from './dto/get-results.dto';
 
-@ApiTags('assessments')
-@Controller('api/assessments')
+@ApiTags('v1/assessments')
+@Controller('v1/assessments')
 export class AssessmentsController {
   constructor(private readonly assessmentsService: AssessmentsService) {}
 

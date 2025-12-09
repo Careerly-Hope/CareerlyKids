@@ -1,6 +1,6 @@
 // src/modules/access-tokens/access-tokens.service.ts
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../../prisma/prisma.service';
 import { GenerateTokenDto } from './dto/generate-token.dto';
 import { TokenType, TokenStatus } from '@prisma/client';
 import * as crypto from 'crypto';

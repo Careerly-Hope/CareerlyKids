@@ -18,8 +18,8 @@ import { TokenResponseDto, ValidationResponseDto } from './dto/token-response.dt
 import { TokenStatusDto } from './dto/token-status.dto';
 import { EmailService } from 'src/common/services/email/email.service';
 
-@ApiTags('access-tokens')
-@Controller('api/access-tokens')
+@ApiTags('v1/access-tokens')
+@Controller('v1/access-tokens')
 export class AccessTokensController {
   constructor(
     private readonly accessTokensService: AccessTokensService,

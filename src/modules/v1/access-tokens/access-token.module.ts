@@ -2,7 +2,7 @@
 import { Module } from '@nestjs/common';
 import { AccessTokensController } from './access-tokens.controller';
 import { AccessTokensService } from './access-token.service';
-import { PrismaModule } from '../../prisma/prisma.module';
+import { PrismaModule } from '../../../prisma/prisma.module';
 import { EmailModule } from 'src/common/services/email/email.module';
 
 @Module({

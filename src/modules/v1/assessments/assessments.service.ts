@@ -1,6 +1,6 @@
 // src/modules/assessments/assessments.service.ts
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../../prisma/prisma.service';
 import { SessionStatus } from '@prisma/client';
 import { scoreTest, validateResponses } from '../scoring/utils/riasec-scoring.util';
 import { findCareerMatches } from '../matching/utils/career-matching.util';
@@ -10,7 +10,7 @@ import { AiService } from '../ai/ai.service';
 import { FeedBackDto } from './dto/submit-feedback.dto';
 import { GetResultDto } from './dto/get-results.dto';
 import { AccessTokensService } from '../access-tokens/access-token.service';
-import { EmailService } from '../../common/services/email/email.service';
+import { EmailService } from '../../../common/services/email/email.service';
 
 @Injectable()
 export class AssessmentsService {
