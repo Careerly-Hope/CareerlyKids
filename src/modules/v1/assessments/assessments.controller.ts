@@ -7,8 +7,11 @@ import { StartTestResponseDto } from './dto/start-assessment.dto';
 import { TestResultDto } from './dto/assessment-result.dto';
 import { FeedBackDto } from './dto/submit-feedback.dto';
 import { GetResultDto } from './dto/get-results.dto';
+import { AdminSendResultsDto } from './dto/admin-send-results.dto';
+import { Public } from 'src/common/decorators/public.decorator';
 
 @ApiTags('v1/assessments')
+@Public()
 @Controller('v1/assessments')
 export class AssessmentsController {
   constructor(private readonly assessmentsService: AssessmentsService) {}
@@ -208,4 +211,36 @@ export class AssessmentsController {
   async submitFeedback(@Body() dto: FeedBackDto) {
     return this.assessmentsService.submitFeedback(dto);
   }
+
+  @Post('admin/send-results')
+@HttpCode(HttpStatus.OK)
+@ApiOperation({
+  summary: '[ADMIN] Manually send results email',
+  description: `
+    Admin endpoint to retrieve test results by session token 
+    and send them to any specified email address.
+    
+    No token validation required - pure admin override.
+  `,
+})
+@ApiResponse({
+  status: 200,
+  description: 'Results email sent successfully',
+  schema: {
+    type: 'object',
+    properties: {
+      success: { type: 'boolean', example: true },
+      message: { type: 'string', example: 'Results email sent successfully' },
+      resultId: { type: 'string' },
+      sentTo: { type: 'string', example: 'parent@example.com' },
+      studentName: { type: 'string', example: 'John Doe' },
+    },
+  },
+})
+@ApiResponse({ status: 404, description: 'Test result not found' })
+@ApiResponse({ status: 500, description: 'Failed to send email' })
+async adminSendResults(@Body() dto: AdminSendResultsDto) {
+  return this.assessmentsService.adminSendResultsBySession(dto);
+}
+
 }

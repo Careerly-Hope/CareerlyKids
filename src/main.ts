@@ -42,47 +42,68 @@ async function bootstrap() {
     .setVersion('1.0')
     .addTag('v1')
     .build();
-
   const documentV1 = SwaggerModule.createDocument(app, configV1, {
     include: [
-      // Dynamically import V1 modules
       (await import('./modules/v1/v1.module')).V1Module,
     ],
     deepScanRoutes: true,
   });
-
   SwaggerModule.setup('api/v1/docs', app, documentV1);
 
-  // Swagger setup for V2 - ONLY V2 routes
+  // Swagger setup for V2 - ONLY V2 routes - FIXED HERE
   const configV2 = new DocumentBuilder()
     .setTitle('CareerlyKids API - V2')
     .setDescription('Version 2 - Full Platform with Auth, Payments, and Guest Support')
     .setVersion('2.0')
     .addTag('v2')
-    .addBearerAuth()
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        name: 'Authorization',
+        description: 'Enter your Clerk JWT token',
+        in: 'header',
+      },
+      'bearer', // This is the security scheme name
+    )
     .build();
-
   const documentV2 = SwaggerModule.createDocument(app, configV2, {
     include: [
-      // Dynamically import V2 modules
       (await import('./modules/v2/v2.module')).V2Module,
     ],
     deepScanRoutes: true,
   });
+  SwaggerModule.setup('api/v2/docs', app, documentV2, {
+    swaggerOptions: {
+      persistAuthorization: true, // Keeps token after page refresh
+    },
+  });
 
-  SwaggerModule.setup('api/v2/docs', app, documentV2);
-
-  // Main docs (combined) - All routes
+  // Main docs (combined) - All routes - FIXED HERE TOO
   const configMain = new DocumentBuilder()
     .setTitle('CareerlyKids API')
     .setDescription('Complete API documentation for all versions')
     .setVersion('1.0')
     .addTag('root')
-    .addBearerAuth()
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        name: 'Authorization',
+        description: 'Enter your Clerk JWT token',
+        in: 'header',
+      },
+      'bearer',
+    )
     .build();
-
   const documentMain = SwaggerModule.createDocument(app, configMain);
-  SwaggerModule.setup('api/docs', app, documentMain);
+  SwaggerModule.setup('api/docs', app, documentMain, {
+    swaggerOptions: {
+      persistAuthorization: true,
+    },
+  });
 
   const port = process.env.PORT || 3000;
   const nodeEnv = process.env.NODE_ENV || 'development';
@@ -97,14 +118,14 @@ async function bootstrap() {
   console.log(`📗 V2 Docs: http://localhost:${port}/api/v2/docs`);
   console.log(`💚 Health Check: http://localhost:${port}/health`);
   console.log(`📍 Root Info: http://localhost:${port}/api`);
-
+  
   if (process.env.CORS_ENABLED === 'true') {
     const origins = process.env.CORS_ORIGINS || 'all origins (development)';
     console.log(`🌐 CORS enabled for: ${origins}`);
   } else {
     console.log('🔒 CORS disabled');
   }
-
+  
   console.log('\n✨ Available API Versions:');
   console.log('   V1: /api/v1/* (Active - Simple Assessment)');
   console.log('   V2: /api/v2/* (In Development - Full Platform)');

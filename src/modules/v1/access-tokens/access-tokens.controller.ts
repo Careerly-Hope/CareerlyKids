@@ -17,8 +17,10 @@ import { ValidateTokenDto } from './dto/validate-token.dto';
 import { TokenResponseDto, ValidationResponseDto } from './dto/token-response.dto';
 import { TokenStatusDto } from './dto/token-status.dto';
 import { EmailService } from 'src/common/services/email/email.service';
+import { Public } from 'src/common/decorators/public.decorator';
 
 @ApiTags('v1/access-tokens')
+@Public()
 @Controller('v1/access-tokens')
 export class AccessTokensController {
   constructor(

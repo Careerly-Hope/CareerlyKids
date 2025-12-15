@@ -11,6 +11,7 @@ import { FeedBackDto } from './dto/submit-feedback.dto';
 import { GetResultDto } from './dto/get-results.dto';
 import { AccessTokensService } from '../access-tokens/access-token.service';
 import { EmailService } from '../../../common/services/email/email.service';
+import { AdminSendResultsDto } from './dto/admin-send-results.dto';
 
 @Injectable()
 export class AssessmentsService {
@@ -591,5 +592,88 @@ export class AssessmentsService {
       resultId: result.id,
       rating: dto.rating,
     };
+  }
+
+
+
+  async adminSendResultsBySession(dto: AdminSendResultsDto) {
+    this.logger.log(
+      `🔧 [ADMIN] Sending results for session ${dto.sessionToken} to ${dto.recipientEmail}`,
+    );
+  
+    // Step 1: Fetch test result by session token
+    const result = await this.prisma.testResult.findUnique({
+      where: { sessionToken: dto.sessionToken },
+      select: {
+        id: true,
+        careerCode: true,
+        scores: true,
+        totalScore: true,
+        tier: true,
+        matchedCareers: true,
+        timestamp: true,
+        aiRecommendation: true,
+      },
+    });
+  
+    if (!result) {
+      throw new NotFoundException(
+        `Test result not found for session token: ${dto.sessionToken}`,
+      );
+    }
+  
+    this.logger.log(`✅ Found result ${result.id} - Career Code: ${result.careerCode}`);
+  
+    // Step 2: Send results email
+    try {
+      const matches = result.matchedCareers as any[];
+      const aiRecommendation = result.aiRecommendation as any;
+  
+      await this.emailService.sendResults({
+        parentEmail: dto.recipientEmail,
+        studentName: dto.studentName,
+        studentClass: dto.studentClass,
+        school: dto.school,
+        careerCode: result.careerCode,
+        scores: result.scores as Record<string, number>,
+        totalScore: result.totalScore,
+        tier: result.tier || 'N/A',
+        matches: matches.map((m) => ({
+          careerName: m.careerName,
+          description: m.description,
+          matchScore: m.matchScore,
+          tags: m.tags || [],
+          jobZone: m.jobZone || 3,
+        })),
+        streamRecommendation: {
+          recommendedStream: aiRecommendation?.recommendedStream || 'N/A',
+          reasoning: aiRecommendation?.reasoning || 'No reasoning available',
+          streamAlignment: aiRecommendation?.streamAlignment || {
+            science: 0,
+            commercial: 0,
+            art: 0,
+          },
+        },
+      });
+  
+      this.logger.log(`📧 [ADMIN] Results email sent to ${dto.recipientEmail}`);
+  
+      return {
+        success: true,
+        message: 'Results email sent successfully',
+        resultId: result.id,
+        sentTo: dto.recipientEmail,
+        studentName: dto.studentName,
+        careerCode: result.careerCode,
+        tier: result.tier,
+        submittedAt: result.timestamp.toISOString(),
+      };
+    } catch (emailError) {
+      this.logger.error(`❌ Failed to send results email: ${emailError.message}`);
+      throw new BadRequestException({
+        message: 'Failed to send results email',
+        error: emailError.message,
+      });
+    }
   }
 }
