@@ -13,16 +13,24 @@ export class RolesGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    const request = context.switchToHttp().getRequest();
+    console.log('👮 RolesGuard - URL:', request.url);
+    console.log('👮 RolesGuard - User exists?', !!request.user);
+    console.log('👮 RolesGuard - User:', request.user?.dbUser?.email);
+    
     const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(ROLES_KEY, [
       context.getHandler(),
       context.getClass(),
     ]);
-
+  
+    console.log('👮 RolesGuard - Required roles:', requiredRoles);
+  
     if (!requiredRoles) {
+      console.log('👮 RolesGuard - No roles required, allowing');
       return true;
     }
 
-    const request = context.switchToHttp().getRequest();
+    // const request = context.switchToHttp().getRequest();
     const clerkUser = request.user;
 
     if (!clerkUser) {

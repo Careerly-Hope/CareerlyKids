@@ -11,7 +11,9 @@ import { PassportStrategy } from '@nestjs/passport';
 import { Strategy } from 'passport-custom';
 import { Request } from 'express';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { Prisma } from '@prisma/client'; // ✅ Add this import
+import { Prisma, AccountStatus } from '@prisma/client';
+import { AuthenticatedUser } from 'src/common/interfaces/authenticated-user.interface';
+import { UserRole, isValidUserRole } from 'src/common/enums/user-role.enum';
 
 @Injectable()
 export class ClerkStrategy extends PassportStrategy(Strategy, 'clerk') {
@@ -59,76 +61,52 @@ export class ClerkStrategy extends PassportStrategy(Strategy, 'clerk') {
     }
   }
 
-  async validate(req: Request): Promise<ClerkUser> {
+  /**
+   * Main validation method - returns AuthenticatedUser with both Clerk and DB data
+   */
+  async validate(req: Request): Promise<AuthenticatedUser> {
+    console.log('🎫 ClerkStrategy - Validating token');
+    console.log('🎫 ClerkStrategy - URL:', req.url);
+    console.log('🎫 ClerkStrategy - Auth header:', req.headers.authorization?.substring(0, 20) + '...');
+    
     const authHeader = req.headers.authorization;
-
+  
     if (!authHeader) {
+      console.log('❌ ClerkStrategy - NO AUTH HEADER!');
       throw new UnauthorizedException('No authorization header provided');
     }
-
     const token = authHeader.replace('Bearer ', '').trim();
 
     if (!token) {
       throw new UnauthorizedException('No token provided');
     }
 
+    // Handle dev token in development mode
     if (this.isDevelopment && token === this.devToken) {
       this.logger.debug('🧪 Dev token detected');
       return this.handleDevToken(req);
     }
 
+    // Prevent dev token usage in production
     if (!this.isDevelopment && token === this.devToken) {
       this.logger.error('❌ Dev token attempted in production mode!');
       throw new UnauthorizedException('Invalid authentication token');
     }
 
+    // Handle real Clerk token
     return this.handleClerkToken(token);
   }
 
-  private async handleDevToken(req: Request): Promise<ClerkUser> {
-    if (!this.isDevelopment) {
-      throw new UnauthorizedException('Development mode not enabled');
-    }
-
-    this.logger.debug('🔓 Processing dev authentication');
-
-    const testUserId = req.headers['x-test-user-id'] as string;
-
-    if (testUserId) {
-      if (!testUserId.startsWith('test_') && !testUserId.startsWith('user_')) {
-        this.logger.warn(`⚠️  Suspicious test user ID format: ${testUserId}`);
-      }
-
-      const dbUser = await this.prisma.user.findUnique({
-        where: { clerkId: testUserId },
-      });
-
-      if (dbUser) {
-        this.logger.debug(`🧪 Using test user: ${dbUser.email} (${dbUser.role})`);
-        return this.createMockClerkUser(
-          dbUser.clerkId,
-          dbUser.email,
-          dbUser.firstName,
-          dbUser.lastName,
-        );
-      }
-
-      this.logger.warn(`⚠️  Test user not found: ${testUserId}`);
-    }
-
-    const defaultTestUser = await this.getOrCreateDefaultTestUser();
-    this.logger.debug(`👤 Using default test user: ${defaultTestUser.email}`);
-
-    return this.createMockClerkUser(
-      defaultTestUser.clerkId,
-      defaultTestUser.email,
-      defaultTestUser.firstName,
-      defaultTestUser.lastName,
-    );
-  }
-
-  private async handleClerkToken(token: string): Promise<ClerkUser> {
+  /**
+   * Handle real Clerk JWT token
+   * 1. Verify token with Clerk
+   * 2. Get Clerk user
+   * 3. Get/sync database user
+   * 4. Return combined object
+   */
+  private async handleClerkToken(token: string): Promise<AuthenticatedUser> {
     try {
+      // 1. Verify JWT token
       const tokenPayload = await verifyToken(token, {
         secretKey: this.configService.get('CLERK_SECRET_KEY'),
       });
@@ -137,14 +115,24 @@ export class ClerkStrategy extends PassportStrategy(Strategy, 'clerk') {
         throw new UnauthorizedException('Invalid token payload');
       }
 
-      const user = await this.clerkClient.users.getUser(tokenPayload.sub);
+      // 2. Get Clerk user
+      const clerkUser = await this.clerkClient.users.getUser(tokenPayload.sub);
 
-      if (!user) {
-        throw new UnauthorizedException('User not found');
+      if (!clerkUser) {
+        throw new UnauthorizedException('User not found in Clerk');
       }
 
-      this.logger.debug(`✅ User authenticated: ${user.id}`);
-      return user;
+      // 3. Get database user (or sync if not exists)
+      const dbUser = await this.getOrSyncDatabaseUser(clerkUser);
+
+      // 4. Return combined authenticated user
+      this.logger.debug(`✅ User authenticated: ${clerkUser.id} (${dbUser.role})`);
+
+      return {
+        ...clerkUser,
+        dbUser,
+      } as AuthenticatedUser;
+
     } catch (error) {
       this.logger.error('Token verification error:', error);
 
@@ -157,28 +145,260 @@ export class ClerkStrategy extends PassportStrategy(Strategy, 'clerk') {
   }
 
   /**
-   * ✅ FIXED: Get or create default test user with transaction to prevent race condition
+   * Handle dev token in development mode
+   */
+  private async handleDevToken(req: Request): Promise<AuthenticatedUser> {
+    if (!this.isDevelopment) {
+      throw new UnauthorizedException('Development mode not enabled');
+    }
+
+    this.logger.debug('🔓 Processing dev authentication');
+
+    const testUserId = req.headers['x-test-user-id'] as string;
+
+    // If specific test user requested
+    if (testUserId) {
+      if (!testUserId.startsWith('test_') && !testUserId.startsWith('user_')) {
+        this.logger.warn(`⚠️  Suspicious test user ID format: ${testUserId}`);
+      }
+
+      const dbUser = await this.prisma.user.findUnique({
+        where: { clerkId: testUserId },
+        select: {
+          id: true,
+          clerkId: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+          status: true,
+          imageUrl: true,
+          phoneNumber: true,
+          dateOfBirth: true,
+          grade: true,
+          school: true,
+          bio: true,
+          createdAt: true,
+          updatedAt: true,
+          lastLoginAt: true,
+        },
+      });
+
+      if (dbUser) {
+        this.logger.debug(`🧪 Using test user: ${dbUser.email} (${dbUser.role})`);
+
+        const mockClerkUser = this.createMockClerkUser(
+          dbUser.clerkId,
+          dbUser.email,
+          dbUser.firstName,
+          dbUser.lastName,
+        );
+
+        return {
+          ...mockClerkUser,
+          dbUser,
+        } as AuthenticatedUser;
+      }
+
+      this.logger.warn(`⚠️  Test user not found: ${testUserId}`);
+    }
+
+    // Use default test user
+    const defaultTestUser = await this.getOrCreateDefaultTestUser();
+    this.logger.debug(`👤 Using default test user: ${defaultTestUser.email}`);
+
+    const mockClerkUser = this.createMockClerkUser(
+      defaultTestUser.clerkId,
+      defaultTestUser.email,
+      defaultTestUser.firstName,
+      defaultTestUser.lastName,
+    );
+
+    return {
+      ...mockClerkUser,
+      dbUser: defaultTestUser,
+    } as AuthenticatedUser;
+  }
+
+  /**
+   * Get database user or sync from Clerk if not exists
+   * This handles the case where webhook might have missed creating the user
+   */
+  private async getOrSyncDatabaseUser(clerkUser: ClerkUser) {
+    // Try to find existing user
+    let dbUser = await this.prisma.user.findUnique({
+      where: { clerkId: clerkUser.id },
+      select: {
+        id: true,
+        clerkId: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        status: true,
+        imageUrl: true,
+        phoneNumber: true,
+        dateOfBirth: true,
+        grade: true,
+        school: true,
+        bio: true,
+        createdAt: true,
+        updatedAt: true,
+        lastLoginAt: true,
+      },
+    });
+
+    // If user doesn't exist, sync from Clerk
+    if (!dbUser) {
+      this.logger.warn(`User ${clerkUser.id} not in database. Syncing from Clerk...`);
+      dbUser = await this.syncUserToDatabase(clerkUser);
+    }
+
+    return dbUser;
+  }
+
+  /**
+   * Sync Clerk user to database
+   * This is a fallback when webhooks fail or user authenticates before webhook fires
+   */
+  private async syncUserToDatabase(clerkUser: ClerkUser) {
+    const email = clerkUser.emailAddresses[0]?.emailAddress;
+    if (!email) {
+      throw new UnauthorizedException('User has no email address');
+    }
+
+    // Extract role from metadata
+    const role = this.extractRoleFromMetadata(
+      clerkUser.publicMetadata as Record<string, any>,
+      clerkUser.privateMetadata as Record<string, any>
+    );
+
+    // Extract custom fields
+    const customFields = (clerkUser.publicMetadata as Record<string, any>) || {};
+
+    return await this.prisma.user.upsert({
+      where: { clerkId: clerkUser.id },
+      create: {
+        clerkId: clerkUser.id,
+        email,
+        firstName: clerkUser.firstName,
+        lastName: clerkUser.lastName,
+        imageUrl: clerkUser.imageUrl,
+        role: role as any,
+        status: AccountStatus.ACTIVE,
+        school: customFields.school as string,
+        grade: customFields.grade as string,
+        bio: customFields.bio as string,
+        dateOfBirth: customFields.dateOfBirth ? new Date(customFields.dateOfBirth as string) : null,
+        lastLoginAt: new Date(),
+      },
+      update: {
+        email,
+        firstName: clerkUser.firstName,
+        lastName: clerkUser.lastName,
+        imageUrl: clerkUser.imageUrl,
+        lastLoginAt: new Date(),
+      },
+      select: {
+        id: true,
+        clerkId: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        status: true,
+        imageUrl: true,
+        phoneNumber: true,
+        dateOfBirth: true,
+        grade: true,
+        school: true,
+        bio: true,
+        createdAt: true,
+        updatedAt: true,
+        lastLoginAt: true,
+      },
+    });
+  }
+
+  /**
+   * Extract role from Clerk metadata
+   */
+  private extractRoleFromMetadata(
+    publicMetadata: Record<string, any>,
+    privateMetadata: Record<string, any>
+  ): UserRole {
+    // Priority 1: Private metadata (admin-set, more secure)
+    const privateRole = privateMetadata?.role;
+    if (privateRole && isValidUserRole(privateRole)) {
+      return privateRole as UserRole;
+    }
+
+    // Priority 2: Public metadata
+    const publicRole = publicMetadata?.role;
+    if (publicRole && isValidUserRole(publicRole)) {
+      return publicRole as UserRole;
+    }
+
+    // Default
+    return UserRole.STUDENT;
+  }
+
+  /**
+   * Get or create default test user for dev mode
    */
   private async getOrCreateDefaultTestUser() {
     const testClerkId = 'test_user_dev_default';
     const testEmail = 'test@careerlykids.dev';
 
     try {
-      // Use transaction to prevent race condition
       return await this.prisma.$transaction(
         async (tx) => {
-          // Try to find existing user
           let user = await tx.user.findUnique({
             where: { clerkId: testClerkId },
+            select: {
+              id: true,
+              clerkId: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+              role: true,
+              status: true,
+              imageUrl: true,
+              phoneNumber: true,
+              dateOfBirth: true,
+              grade: true,
+              school: true,
+              bio: true,
+              createdAt: true,
+              updatedAt: true,
+              lastLoginAt: true,
+            },
           });
 
           if (user) {
             return user;
           }
 
-          // Check if email exists with different clerkId (shouldn't happen, but be safe)
           const emailExists = await tx.user.findUnique({
             where: { email: testEmail },
+            select: {
+              id: true,
+              clerkId: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+              role: true,
+              status: true,
+              imageUrl: true,
+              phoneNumber: true,
+              dateOfBirth: true,
+              grade: true,
+              school: true,
+              bio: true,
+              createdAt: true,
+              updatedAt: true,
+              lastLoginAt: true,
+            },
           });
 
           if (emailExists) {
@@ -188,7 +408,6 @@ export class ClerkStrategy extends PassportStrategy(Strategy, 'clerk') {
             return emailExists;
           }
 
-          // Create new default test user
           user = await tx.user.create({
             data: {
               clerkId: testClerkId,
@@ -197,6 +416,24 @@ export class ClerkStrategy extends PassportStrategy(Strategy, 'clerk') {
               lastName: 'User',
               role: 'STUDENT',
               status: 'ACTIVE',
+            },
+            select: {
+              id: true,
+              clerkId: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+              role: true,
+              status: true,
+              imageUrl: true,
+              phoneNumber: true,
+              dateOfBirth: true,
+              grade: true,
+              school: true,
+              bio: true,
+              createdAt: true,
+              updatedAt: true,
+              lastLoginAt: true,
             },
           });
 
@@ -211,22 +448,56 @@ export class ClerkStrategy extends PassportStrategy(Strategy, 'clerk') {
       );
     } catch (error) {
       this.logger.error('Error creating default test user:', error);
-      
-      // If it's a unique constraint error, try to fetch the existing user
+
       if (error.code === 'P2002') {
         this.logger.warn('Race condition detected, fetching existing user');
-        
+
         const existingUser = await this.prisma.user.findUnique({
           where: { clerkId: testClerkId },
+          select: {
+            id: true,
+            clerkId: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            role: true,
+            status: true,
+            imageUrl: true,
+            phoneNumber: true,
+            dateOfBirth: true,
+            grade: true,
+            school: true,
+            bio: true,
+            createdAt: true,
+            updatedAt: true,
+            lastLoginAt: true,
+          },
         });
-        
+
         if (existingUser) {
           return existingUser;
         }
 
-        // Try by email as fallback
         const userByEmail = await this.prisma.user.findUnique({
           where: { email: testEmail },
+          select: {
+            id: true,
+            clerkId: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            role: true,
+            status: true,
+            imageUrl: true,
+            phoneNumber: true,
+            dateOfBirth: true,
+            grade: true,
+            school: true,
+            bio: true,
+            createdAt: true,
+            updatedAt: true,
+            lastLoginAt: true,
+          },
         });
 
         if (userByEmail) {
@@ -240,6 +511,9 @@ export class ClerkStrategy extends PassportStrategy(Strategy, 'clerk') {
     }
   }
 
+  /**
+   * Create mock Clerk user for dev mode
+   */
   private createMockClerkUser(
     id: string,
     email: string,

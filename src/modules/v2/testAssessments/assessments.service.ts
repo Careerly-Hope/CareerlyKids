@@ -2,14 +2,14 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { SessionStatus } from '@prisma/client';
-import { scoreTest, validateResponses } from '../scoring/utils/riasec-scoring.util';
-import { findCareerMatches } from '../matching/utils/career-matching.util';
+import { scoreTest, validateResponses } from './scoring/utils/riasec-scoring.util';
+import { findCareerMatches } from './scoring/career-matching.util';
 import { SubmitTestDto } from './dto/submit-assessment.dto';
 import { randomBytes } from 'crypto';
 import { AiService } from '../ai/ai.service';
 import { FeedBackDto } from './dto/submit-feedback.dto';
 import { GetResultDto } from './dto/get-results.dto';
-import { AccessTokensService } from '../access-tokens/access-token.service';
+import { TokensService } from '../tokens/access-token.service';
 import { EmailService } from '../../../common/services/email/email.service';
 import { AdminSendResultsDto } from './dto/admin-send-results.dto';
 
@@ -20,7 +20,7 @@ export class AssessmentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiService: AiService,
-    private readonly accessTokensService: AccessTokensService,
+    private readonly accessTokensService: TokensService,
     private readonly emailService: EmailService,
   ) {}
 
@@ -236,7 +236,7 @@ export class AssessmentsService {
         reason: tokenValidation.reason,
       });
     }
-    const token = tokenValidation.token!;
+    const token = await this.accessTokensService.getValidToken(dto.accessToken);
     this.logger.log(
       `✅ Token valid: ${token.type} - ${token.school || 'N/A'} (${token.usageCount}/${token.maxUsage})`,
     );
@@ -398,7 +398,7 @@ export class AssessmentsService {
     const token = await this.prisma.accessToken.findUnique({
       where: { token: tokenString },
       include: {
-        usages: {
+        usageRecords: {
           select: {
             id: true,
             firstName: true,
@@ -437,9 +437,9 @@ export class AssessmentsService {
       firstUsedAt: token.firstUsedAt,
 
       // Student list
-      totalStudents: token.usages.length,
-      totalViews: token.usages.reduce((sum, u) => sum + u.viewCount, 0),
-      students: token.usages.map((usage) => ({
+      totalStudents: token.usageRecords.length,
+      totalViews: token.usageRecords.reduce((sum, u) => sum + u.viewCount, 0),
+      students: token.usageRecords.map((usage) => ({
         name: `${usage.firstName} ${usage.lastName}`,
         class: usage.class,
         parentEmail: usage.parentEmail,

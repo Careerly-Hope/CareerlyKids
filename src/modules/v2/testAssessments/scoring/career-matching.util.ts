@@ -3,8 +3,8 @@ import {
   MATCH_THRESHOLDS,
   MATCH_TYPES,
   RIASEC_CATEGORIES,
-} from '../../scoring/constants/scoring.constants';
-import { RIASECScores } from '../../scoring/utils/riasec-scoring.util';
+} from '../scoring/constants/scoring.constants';
+import { RIASECScores } from '../scoring/utils/riasec-scoring.util';
 
 export interface CareerMatch {
   careerId: number;

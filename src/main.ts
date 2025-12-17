@@ -35,27 +35,80 @@ async function bootstrap() {
     }),
   );
 
-  // Swagger setup for V1 - ONLY V1 routes
-  const configV1 = new DocumentBuilder()
-    .setTitle('CareerlyKids API - V1')
-    .setDescription('Version 1 - Simple Assessment Platform')
-    .setVersion('1.0')
-    .addTag('v1')
-    .build();
-  const documentV1 = SwaggerModule.createDocument(app, configV1, {
-    include: [
-      (await import('./modules/v1/v1.module')).V1Module,
-    ],
-    deepScanRoutes: true,
-  });
-  SwaggerModule.setup('api/v1/docs', app, documentV1);
+ 
 
   // Swagger setup for V2 - ONLY V2 routes - FIXED HERE
   const configV2 = new DocumentBuilder()
     .setTitle('CareerlyKids API - V2')
-    .setDescription('Version 2 - Full Platform with Auth, Payments, and Guest Support')
+    .setDescription(`
+      ## 🎓 CareerlyKids API
+      
+      Career assessment & guidance platform for students, schools, and organizations.
+      
+      ---
+      
+      ### 👥 Roles & Permissions
+      
+      | Role | Access |
+      |-----|-------|
+      | 🔴 **SUPER_ADMIN** | Full system access, analytics, tokens, config |
+      | 🔵 **ADMIN** | School/org management, bulk tokens, reports |
+      | 🟢 **STUDENT** | Take assessments, view results, manage profile |
+      | 🟠 **PUBLIC** | Token validation, public info |
+      
+      ---
+      
+      ### 🔐 Authentication
+      
+      Protected endpoints require a Bearer token:
+      
+      \`\`\`
+      Authorization: Bearer <jwt-token>
+      \`\`\`
+      
+      **Dev Quick Start**
+      1. Click **Authorize** 🔒  
+      2. Call \`POST /v2/auth/dev/generate-token\`  (only email of users in your clerk applications will work)
+      3. Paste token → Authorize → Test endpoints
+      
+      ---
+      
+      ### 📦 Core Features
+      
+      | Area | Capabilities |
+      |----|-------------|
+      | 🎟️ **Tokens** | Individual & bulk, validation, usage tracking |
+      | 🧠 **Assessments** | RIASEC profiling, AI stream matching |
+      | 👤 **Users** | Clerk auth, profiles, roles, webhooks |
+      
+      ---
+      
+      ### 🎯 Endpoint Role Indicators
+      
+      | Icon | Meaning |
+      |----|--------|
+      | 🔴 | SUPER_ADMIN only |
+      | 🔵 | ADMIN only |
+      | 🟢 | STUDENT & above |
+      | 🟠 | Public (no auth) |
+      
+      ---
+      
+      ### 💰 Pricing
+      
+      | Quantity | Price |
+      |-------|------|
+      | 1 Token | ₦5,000 |
+      | 20–49 | ₦4,500 (10% off) |
+      | 50–99 | ₦4,000 (20% off) |
+      | 100+ | ₦3,500 (30% off) |
+      
+      ---
+      
+      📩 **Support:** support@careerlykids.com
+      `)
+      
     .setVersion('2.0')
-    .addTag('v2')
     .addBearerAuth(
       {
         type: 'http',
@@ -65,8 +118,9 @@ async function bootstrap() {
         description: 'Enter your Clerk JWT token',
         in: 'header',
       },
-      'bearer', // This is the security scheme name
+      'bearer',
     )
+    
     .build();
   const documentV2 = SwaggerModule.createDocument(app, configV2, {
     include: [
@@ -114,8 +168,7 @@ async function bootstrap() {
   console.log(`📍 Environment: ${nodeEnv}`);
   console.log(`🚀 Application: http://localhost:${port}`);
   console.log(`📚 Main Docs: http://localhost:${port}/api/docs`);
-  console.log(`📘 V1 Docs: http://localhost:${port}/api/v1/docs`);
-  console.log(`📗 V2 Docs: http://localhost:${port}/api/v2/docs`);
+   console.log(`📗 V2 Docs: http://localhost:${port}/api/v2/docs`);
   console.log(`💚 Health Check: http://localhost:${port}/health`);
   console.log(`📍 Root Info: http://localhost:${port}/api`);
   

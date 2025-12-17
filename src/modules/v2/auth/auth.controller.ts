@@ -12,8 +12,7 @@ import {
   Req,
   BadRequestException,
 } from '@nestjs/common';
-import { User } from '@clerk/backend';
-import { CurrentUser } from '../../../common/decorators/current-user.decorator';
+ import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { AuthService } from './auth.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import {
@@ -28,8 +27,9 @@ import { ApiResponse } from 'src/common/dto/response.dto';
 import { Webhook } from 'svix';
 import { ConfigService } from '@nestjs/config';
 import { ClerkWebhookEvent } from './dto/clerk-webhook.dto';
+import { AuthenticatedUser } from 'src/common/interfaces/authenticated-user.interface';
 
-@ApiTags('Authentication')
+@ApiTags('v2/Auth')
 @Controller('v2/auth')
 export class AuthController {
   constructor(
@@ -126,9 +126,8 @@ export class AuthController {
   @SwaggerResponse({ status: 200, description: 'Returns user profile.' })
   @SwaggerResponse({ status: 401, description: 'Unauthorized.' })
   @SwaggerResponse({ status: 404, description: 'User not found.' })
-  async getProfile(@CurrentUser() clerkUser: User) {
-    const profile = await this.authService.getCurrentUser(clerkUser.id);
-    return ApiResponse.success(profile, 'User profile retrieved');
+  async getProfile(@CurrentUser() user: AuthenticatedUser) {
+    return ApiResponse.success(user.dbUser, 'User profile retrieved');
   }
 
   @Patch('profile')
@@ -142,8 +141,8 @@ export class AuthController {
     type: UpdateProfileDto,
   })
   @SwaggerResponse({ status: 200, description: 'Profile updated successfully.' })
-  async updateProfile(@CurrentUser() clerkUser: User, @Body() dto: UpdateProfileDto) {
-    const updated = await this.authService.updateProfile(clerkUser.id, dto);
+  async updateProfile(@CurrentUser() user: AuthenticatedUser, @Body() dto: UpdateProfileDto) {
+     const updated = await this.authService.updateProfile(user.id, dto);
     return ApiResponse.success(updated, 'Profile updated successfully');
   }
 
@@ -154,8 +153,8 @@ export class AuthController {
     description: 'Deletes user account from both Clerk and database.',
   })
   @SwaggerResponse({ status: 200, description: 'Account deleted successfully.' })
-  async deleteAccount(@CurrentUser() clerkUser: User) {
-    const result = await this.authService.deleteAccount(clerkUser.id);
+  async deleteAccount(@CurrentUser() user: AuthenticatedUser) {
+    const result = await this.authService.deleteAccount(user.id);
     return ApiResponse.success(result, 'Account deleted successfully');
   }
 
@@ -196,8 +195,8 @@ export class AuthController {
         },
         templateName: {
           type: 'string',
-          example: 'swagger-testing',
-          default: 'swagger-testing',
+          example: 'api-testing',
+          default: 'api-testing',
           description: 'Name of the JWT template in Clerk Dashboard',
         },
       },
@@ -247,7 +246,7 @@ export class AuthController {
   async generateTestToken(@Body() body: { email: string; templateName?: string }) {
     const result = await this.authService.generateTestToken(
       body.email,
-      body.templateName || 'swagger-testing',
+      body.templateName || 'api-testing',
     );
     return ApiResponse.success(result, 'Test token generated');
   }

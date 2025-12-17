@@ -12,7 +12,7 @@ import {
   IsOptional,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { SCORE_CONSTRAINTS } from '../../scoring/constants/scoring.constants';
+import { SCORE_CONSTRAINTS } from '.././scoring/constants/scoring.constants';
 
 export class QuestionResponseDto {
   @ApiProperty({ example: 1, description: 'Question ID' })
