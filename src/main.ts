@@ -123,22 +123,22 @@ async function bootstrap() {
     )
 
     .build();
-    const documentV2 = SwaggerModule.createDocument(app, configV2, {
-      include: [V2Module], // ✅ STATIC import
-      deepScanRoutes: true,
-    });
-    
-    SwaggerModule.setup('api/v2/docs', app, documentV2, {
-      swaggerOptions: {
-        persistAuthorization: true,
-      },
-    });
+  const documentV2 = SwaggerModule.createDocument(app, configV2, {
+    include: [V2Module], // ✅ STATIC import
+    deepScanRoutes: true,
+  });
+
+  SwaggerModule.setup('api/v2/docs', app, documentV2, {
+    swaggerOptions: {
+      persistAuthorization: true,
+    },
+  });
 
   // Main docs (combined) - All routes - FIXED HERE TOO
   const configMain = new DocumentBuilder()
-  .setTitle('CareerlyKids API')
-  .setDescription(
-    `
+    .setTitle('CareerlyKids API')
+    .setDescription(
+      `
     ## 🎓 CareerlyKids API
     
     Career assessment & guidance platform for students, schools, and organizations.
@@ -205,28 +205,29 @@ async function bootstrap() {
     
     📩 **Support:** support@careerlykids.com
     `,
-  )  .setVersion('1.0')
-  .addBearerAuth(
-    {
-      type: 'http',
-      scheme: 'bearer',
-      bearerFormat: 'JWT',
-      name: 'Authorization',
-      in: 'header',
+    )
+    .setVersion('1.0')
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        name: 'Authorization',
+        in: 'header',
+      },
+      'bearer',
+    )
+    .build();
+
+  const documentMain = SwaggerModule.createDocument(app, configMain, {
+    deepScanRoutes: true, // ✅ IMPORTANT
+  });
+
+  SwaggerModule.setup('api/docs', app, documentMain, {
+    swaggerOptions: {
+      persistAuthorization: true,
     },
-    'bearer',
-  )
-  .build();
-
-const documentMain = SwaggerModule.createDocument(app, configMain, {
-  deepScanRoutes: true, // ✅ IMPORTANT
-});
-
-SwaggerModule.setup('api/docs', app, documentMain, {
-  swaggerOptions: {
-    persistAuthorization: true,
-  },
-});
+  });
 
   const port = process.env.PORT || 3000;
   const nodeEnv = process.env.NODE_ENV || 'development';
