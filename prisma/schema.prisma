@@ -53,8 +53,83 @@ enum PaymentStatus {
   REFUNDED
 }
 
+// UPDATED: New user role system with access control
+enum UserRole {
+  SUPER_ADMIN  // 🔴 Super Admin Only - Full system access
+  ADMIN        // 🔵 Admin Only - Bulk purchasers, organization management  
+  STUDENT      // 🟢 Registered User - Individual users with accounts
+  GUEST        // 🟠 Guest - Temporary access without registration
+}
+
+enum AccountStatus {
+  ACTIVE
+  SUSPENDED
+  INACTIVE     // Changed from DELETED to INACTIVE
+  PENDING      // NEW: For accounts pending verification
+}
+
 // ----------------------------------
-// CORE MODELS
+// USER & AUTH MODELS
+// ----------------------------------
+
+// UPDATED: Simplified User model without careers, notifications, preferences
+model User {
+  id            String        @id @default(uuid()) @db.Uuid
+  clerkId       String        @unique @db.VarChar(255)
+  email         String        @unique @db.VarChar(255)
+  firstName     String?       @db.VarChar(100)
+  lastName      String?       @db.VarChar(100)
+  imageUrl      String?       @db.Text
+  role          UserRole      @default(STUDENT)
+  status        AccountStatus @default(ACTIVE)
+  
+  // Profile information
+  phoneNumber   String?       @db.VarChar(20)
+  dateOfBirth   DateTime?
+  grade         String?       @db.VarChar(20)
+  school        String?       @db.VarChar(255)
+  bio           String?       @db.Text
+  
+  // Metadata
+  metadata      Json?         @default("{}")
+  lastLoginAt   DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  
+  // Relations
+  testSessions  UserTestSession[]
+  // ✅ ADDED: Token ownership relation
+  ownedTokens   AccessToken[]
+
+  @@index([clerkId])
+  @@index([email])
+  @@index([role])
+  @@index([status])
+  @@index([school])
+  @@map("users")
+}
+
+ 
+
+// USER TEST SESSION (links users to their test sessions) - UNCHANGED
+model UserTestSession {
+  id            String      @id @default(uuid()) @db.Uuid
+  userId        String      @db.Uuid
+  sessionToken  String      @unique
+  
+  completedAt   DateTime?
+  createdAt     DateTime    @default(now())
+  
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session       TestSession @relation(fields: [sessionToken], references: [sessionToken], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([sessionToken])
+  @@map("user_test_sessions")
+}
+
+// ----------------------------------
+// CORE MODELS (UNCHANGED - V1 compatibility)
 // ----------------------------------
 
 // QUESTIONS
@@ -92,18 +167,20 @@ model CareerProfile {
 }
 
 // ----------------------------------
-// TESTING WORKFLOW
+// TESTING WORKFLOW (UNCHANGED - V1 compatibility)
 // ----------------------------------
 
 // TEST SESSION
 model TestSession {
-  id           String        @id @default(uuid())
-  sessionToken String        @unique
-  startedAt    DateTime      @default(now())
-  expiresAt    DateTime
-  status       SessionStatus @default(STARTED)
-  result       TestResult?
-
+  id              String            @id @default(uuid())
+  sessionToken    String            @unique
+  startedAt       DateTime          @default(now())
+  expiresAt       DateTime
+  status          SessionStatus     @default(STARTED)
+  
+  result          TestResult?
+  userSession     UserTestSession?
+  
   @@index([sessionToken])
   @@index([expiresAt])
   @@index([status])
@@ -112,27 +189,27 @@ model TestSession {
 
 // TEST RESULT
 model TestResult {
-  id               String      @id @default(uuid()) @db.Uuid
-  timestamp        DateTime    @default(now())
-  responses        Json
-  scores           Json
-  careerCode       String      @db.VarChar(3)
-  matchedCareers   Json
-  totalScore       Int?
-  completionTime   Int?
-  deviceType       String?     @db.VarChar(50)
-  jobPreferences   Json?
-  sessionToken     String      @unique
-  tier             String?     @db.VarChar(20)
-  aiRecommendation Json?
-  userFeedback        String?   @db.Text
-  feedbackRating      Int?      @db.SmallInt
+  id                  String      @id @default(uuid()) @db.Uuid
+  timestamp           DateTime    @default(now())
+  responses           Json
+  scores              Json
+  careerCode          String      @db.VarChar(3)
+  matchedCareers      Json
+  totalScore          Int?
+  completionTime      Int?
+  deviceType          String?     @db.VarChar(50)
+  jobPreferences      Json?
+  sessionToken        String      @unique
+  tier                String?     @db.VarChar(20)
+  aiRecommendation    Json?
+  userFeedback        String?     @db.Text
+  feedbackRating      Int?        @db.SmallInt
   feedbackSubmittedAt DateTime?
-
+  
   // Relations
-  session          TestSession @relation(fields: [sessionToken], references: [sessionToken], onDelete: Cascade)
-  unlockedBy       TokenUsage[]
-
+  session             TestSession @relation(fields: [sessionToken], references: [sessionToken], onDelete: Cascade)
+  unlockedBy          TokenUsage[]
+  
   @@index([timestamp])
   @@index([careerCode])
   @@index([sessionToken])
@@ -141,8 +218,11 @@ model TestResult {
 }
 
 // ----------------------------------
-// TOKEN USAGE TRACKING
+// TOKEN USAGE TRACKING (UNCHANGED - V1 compatibility)
 // ----------------------------------
+
+
+// Updated TokenUsage to match relation name
 model TokenUsage {
   id            String      @id @default(uuid()) @db.Uuid
   
@@ -152,59 +232,117 @@ model TokenUsage {
   firstName     String      @db.VarChar(100)
   lastName      String      @db.VarChar(100)
   class         String      @db.VarChar(50)
-  parentEmail   String?     @db.VarChar(255)  // ✅ NEW: Optional parent email field
+  parentEmail   String?     @db.VarChar(255)
   
   unlockedAt    DateTime    @default(now())
   lastViewedAt  DateTime    @default(now())
   viewCount     Int         @default(1)
   ipAddress     String?     @db.VarChar(45)
-
-  token         AccessToken @relation(fields: [tokenId], references: [id], onDelete: Cascade)
+  
+  // ✅ FIXED: Relation name matches AccessToken.usageRecords
+  token         AccessToken @relation("TokenUsageRecords", fields: [tokenId], references: [id], onDelete: Cascade)
   result        TestResult  @relation(fields: [sessionToken], references: [sessionToken], onDelete: Cascade)
-
+  
   @@unique([tokenId, sessionToken], name: "unique_token_session")
   @@index([tokenId])
   @@index([sessionToken])
   @@index([unlockedAt])
   @@index([class])
-  @@index([parentEmail])  // ✅ NEW: Index for parent email lookups
+  @@index([parentEmail])
   @@map("token_usage")
 }
 
-// ----------------------------------
-// ACCESS TOKENS (AUTH / BILLING)
-// ----------------------------------
+
+// ------------------------------
+// Updated AccessToken model with all required fields
+
 model AccessToken {
-  id            String      @id @default(uuid()) @db.Uuid
-  token         String      @unique @db.VarChar(100)
-  email         String      @db.VarChar(255)
-  name          String?     @db.VarChar(255)
-  school        String?
-
-  type          TokenType   @default(INDIVIDUAL)
-  status        TokenStatus @default(ACTIVE)
-
-  usageCount    Int         @default(0) @db.SmallInt
-  maxUsage      Int         @db.SmallInt
-
-  createdAt     DateTime    @default(now())
-  firstUsedAt   DateTime?
-  lastUsedAt    DateTime?
-  expiresAt     DateTime
-
-  paymentId     String?        @db.VarChar(100)
-  paymentStatus PaymentStatus?
-  amount        Decimal?       @db.Decimal(10, 2)
-  currency      String?        @default("USD") @db.VarChar(3)
-  metadata      Json?          @default("{}")
-
-  usages        TokenUsage[]
-
+  id                String         @id @default(uuid()) @db.Uuid
+  token             String         @unique @db.VarChar(100)
+  email             String         @db.VarChar(255)
+  name              String?        @db.VarChar(255)
+  school            String?
+  type              TokenType      @default(INDIVIDUAL)
+  status            TokenStatus    @default(ACTIVE)
+  usageCount        Int            @default(0) @db.SmallInt
+  maxUsage          Int            @db.SmallInt
+  
+  // Owner tracking
+  ownerId           String?        @db.Uuid
+  owner             User?          @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  
+  // Payment tracking
+  amountPaid        Int?           // Amount in kobo (multiply by 100)
+  paymentIntentId   String?        @db.VarChar(255)
+  paymentStatus     PaymentStatus?
+  currency          String?        @default("NGN") @db.VarChar(3)
+  
+  // Creation tracking
+  createdBy         String?        @db.VarChar(100) // "USER_PURCHASE", "ADMIN_BULK", "SUPER_ADMIN_MANUAL"
+  
+  // Timestamps
+  createdAt         DateTime       @default(now())
+  firstUsedAt       DateTime?
+  lastUsedAt        DateTime?
+  expiresAt         DateTime
+  
+  // Metadata
+  metadata          Json?          @default("{}")
+  
+  // ✅ FIXED: Relation name changed from 'usages' to 'usageRecords'
+  usageRecords      TokenUsage[]   @relation("TokenUsageRecords")
+  
   @@index([token])
   @@index([email])
   @@index([status])
   @@index([type])
+  @@index([ownerId])
   @@index([expiresAt])
   @@index([createdAt])
   @@map("access_tokens")
 }
+
+// Payment transaction records
+model Payment {
+  id                String        @id @default(uuid()) @db.Uuid
+  reference         String        @unique @db.VarChar(255)
+  
+  // ✅ CHANGED: userId is now optional (nullable) for guest purchases
+  userId            String?       @db.Uuid  // Changed from String to String?
+  tokenId           String?       @db.Uuid
+  
+  // Payment details
+  amount            Int
+  currency          String        @default("NGN") @db.VarChar(3)
+  status            PaymentStatus @default(PENDING)
+  
+  // Paystack data
+  paystackReference String?       @unique @db.VarChar(255)
+  authorizationUrl  String?       @db.Text
+  accessCode        String?       @db.VarChar(255)
+  
+  // Token metadata (stored for token generation)
+  metadata          Json
+  
+  // ✅ NEW: Guest user info (stored in metadata or separate fields)
+  guestEmail        String?       @db.VarChar(255)  // Email for guest purchases
+  
+  // Tracking
+  paidAt            DateTime?
+  failedAt          DateTime?
+  refundedAt        DateTime?
+  failureReason     String?       @db.Text
+  
+  // Timestamps
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  
+  @@index([reference])
+  @@index([userId])
+  @@index([guestEmail])
+  @@index([status])
+  @@index([paystackReference])
+  @@index([createdAt])
+  @@map("payments")
+}
+
