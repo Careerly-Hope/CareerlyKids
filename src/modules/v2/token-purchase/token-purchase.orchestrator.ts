@@ -82,7 +82,7 @@ export class TokenPurchaseOrchestrator {
   /**
    * Get bulk purchase quote (no database write)
    */
-  async getBulkQuote(quantity: number, school: string) {
+  async getBulkQuote(quantity: number) {
     return this.tokensService.calculateBulkQuote(quantity);
   }
 

@@ -1,21 +1,9 @@
-import {
-  Controller,
-  Get,
-  Param,
-  Query,
-  UseGuards,
-  Post,
-  Body,
-  HttpCode,
-  HttpStatus,
-} from '@nestjs/common';
+import { Controller, Get, Param, Query, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { TokensService } from './access-token.service';
 import { Public } from '../../../common/decorators/public.decorator';
-import { AllAuthenticated, Roles, SuperAdminOnly } from '../../../common/decorators/roles.decorator';
-import { UserRole } from '../../../common/enums/user-role.enum';
-import { CurrentUser, CurrentUserId } from '../../../common/decorators/current-user.decorator';
-import { RolesGuard } from '../auth/roles.guard';
+import { AllAuthenticated, SuperAdminOnly } from '../../../common/decorators/roles.decorator';
+import { CurrentUserId } from '../../../common/decorators/current-user.decorator';
 import { TokenType, TokenStatus } from '@prisma/client';
 
 @ApiTags('Tokens')
@@ -29,18 +17,16 @@ export class TokensController {
   // ===================================================================
 
   @Get('my-tokens')
-@AllAuthenticated()
+  @AllAuthenticated()
   @ApiOperation({ summary: 'Get my purchased tokens' })
-  async getMyTokens(   @CurrentUserId() userId: string, ) {
+  async getMyTokens(@CurrentUserId() userId: string) {
     return this.tokensService.getUserTokens(userId);
   }
 
   @Get(':code/details')
   @AllAuthenticated()
   @ApiOperation({ summary: 'Get token details (owner only)' })
-  async getTokenDetails(
-    @Param('code') code: string,
-    @CurrentUserId() userId: string,   ) {
+  async getTokenDetails(@Param('code') code: string, @CurrentUserId() userId: string) {
     return this.tokensService.getTokenDetails(code, userId);
   }
 
@@ -61,7 +47,7 @@ export class TokensController {
   // ===================================================================
 
   @Get('admin/all')
-@SuperAdminOnly()
+  @SuperAdminOnly()
   @ApiOperation({ summary: 'List all tokens (platform-wide)' })
   async getAllTokens(
     @Query('type') type?: TokenType,
@@ -73,7 +59,7 @@ export class TokensController {
   }
 
   @Post('admin/:code/revoke')
-@SuperAdminOnly()
+  @SuperAdminOnly()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Revoke token' })
   async revokeToken(@Param('code') code: string) {

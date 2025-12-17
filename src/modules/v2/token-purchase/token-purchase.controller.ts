@@ -16,10 +16,13 @@ import {
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { TokenPurchaseOrchestrator } from './token-purchase.orchestrator';
 import { PaymentsService } from '../payments/payment.service';
-import { CurrentUser, CurrentUserId } from '../../../common/decorators/current-user.decorator';
-import { AdminOnly, AllAuthenticated, Roles, SuperAdminOnly } from '../../../common/decorators/roles.decorator';
+import { CurrentUserId } from '../../../common/decorators/current-user.decorator';
+import {
+  AdminOnly,
+  AllAuthenticated,
+  SuperAdminOnly,
+} from '../../../common/decorators/roles.decorator';
 import { Public } from '../../../common/decorators/public.decorator';
-import { UserRole } from '../../../common/enums/user-role.enum';
 import { RolesGuard } from '../auth/roles.guard';
 import { PurchaseBulkTokenDto } from './dto/purchase-bulk.dto';
 import { BulkQuoteDto } from './dto/bulk-quote.dto';
@@ -39,7 +42,7 @@ export class TokenPurchaseController {
   // ===================================================================
 
   @Post('individual')
-   @AllAuthenticated()
+  @AllAuthenticated()
   @ApiBearerAuth('bearer')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -67,12 +70,12 @@ export class TokenPurchaseController {
     description: 'Calculate pricing for bulk tokens with volume discounts',
   })
   async getBulkQuote(@Body() dto: BulkQuoteDto) {
-    return this.orchestrator.getBulkQuote(dto.quantity, dto.school);
+    return this.orchestrator.getBulkQuote(dto.quantity);
   }
 
   @Post('bulk')
   @UseGuards(RolesGuard)
-@AdminOnly()
+  @AdminOnly()
   @ApiBearerAuth('bearer')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -89,7 +92,7 @@ export class TokenPurchaseController {
 
   @Get('verify/:reference')
   @UseGuards(RolesGuard)
-@Public()
+  @Public()
   @ApiBearerAuth('bearer')
   @ApiOperation({
     summary: '✅ Verify payment and generate token',
@@ -136,7 +139,7 @@ export class TokenPurchaseController {
 
   @Post('admin/retry/:paymentId')
   @UseGuards(RolesGuard)
-@SuperAdminOnly()
+  @SuperAdminOnly()
   @ApiBearerAuth('bearer')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({

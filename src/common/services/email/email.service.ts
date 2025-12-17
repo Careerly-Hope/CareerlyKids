@@ -204,20 +204,30 @@ export class EmailService {
   }
 
   private generateResultsEmailHtml(params: SendResultsParams): string {
-    const { studentName, studentClass, school, careerCode, scores, totalScore, tier, matches, streamRecommendation } = params;
+    const {
+      studentName,
+      studentClass,
+      school,
+      careerCode,
+      scores,
+      totalScore,
+      tier,
+      matches,
+      streamRecommendation,
+    } = params;
 
-    const institutionText = school
-      ? `<p style="color:#666; margin-bottom: 20px;">Assessment completed through <strong>${school}</strong></p>`
-      : '';
+    // const institutionText = school
+    //   ? `<p style="color:#666; margin-bottom: 20px;">Assessment completed through <strong>${school}</strong></p>`
+    //   : '';
 
     // Generate RIASEC scores bars
     const riasecLabels = {
       R: 'Realistic',
-      I: 'Investigative', 
+      I: 'Investigative',
       A: 'Artistic',
       S: 'Social',
       E: 'Enterprising',
-      C: 'Conventional'
+      C: 'Conventional',
     };
 
     const scoresBars = Object.entries(scores)
@@ -236,13 +246,15 @@ export class EmailService {
             </div>
           </div>
         `;
-      }).join('');
+      })
+      .join('');
 
     // Generate stream alignment bars
     const streamBars = Object.entries(streamRecommendation.streamAlignment)
       .sort((a, b) => b[1] - a[1])
       .map(([stream, value]) => {
-        const color = stream === streamRecommendation.recommendedStream.toLowerCase() ? '#4caf50' : '#667eea';
+        const color =
+          stream === streamRecommendation.recommendedStream.toLowerCase() ? '#4caf50' : '#667eea';
         const icon = stream === 'science' ? '🔬' : stream === 'commercial' ? '💼' : '🎨';
         return `
           <div style="margin-bottom: 12px;">
@@ -255,15 +267,22 @@ export class EmailService {
             </div>
           </div>
         `;
-      }).join('');
+      })
+      .join('');
 
     // Generate career cards
-    const careerCards = matches.slice(0, 10).map((career, index) => {
-      const tags = career.tags.slice(0, 4).map(tag => 
-        `<span style="display: inline-block; background: #e3f2fd; color: #1976d2; padding: 4px 10px; border-radius: 12px; font-size: 12px; margin: 2px;">${tag}</span>`
-      ).join('');
+    const careerCards = matches
+      .slice(0, 10)
+      .map((career, index) => {
+        const tags = career.tags
+          .slice(0, 4)
+          .map(
+            (tag) =>
+              `<span style="display: inline-block; background: #e3f2fd; color: #1976d2; padding: 4px 10px; border-radius: 12px; font-size: 12px; margin: 2px;">${tag}</span>`,
+          )
+          .join('');
 
-      return `
+        return `
         <div style="background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; margin-bottom: 16px;">
           <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
             <h4 style="margin: 0; color: #667eea; font-size: 18px;">${index + 1}. ${career.careerName}</h4>
@@ -282,7 +301,8 @@ export class EmailService {
           </div>
         </div>
       `;
-    }).join('');
+      })
+      .join('');
 
     return `
 <!DOCTYPE html>
@@ -472,7 +492,17 @@ Start assessment: ${this.assessmentUrl}
   }
 
   private generateResultsEmailText(params: SendResultsParams): string {
-    const { studentName, studentClass, school, careerCode, scores, totalScore, tier, matches, streamRecommendation } = params;
+    const {
+      studentName,
+      studentClass,
+      school,
+      careerCode,
+      scores,
+      totalScore,
+      tier,
+      matches,
+      streamRecommendation,
+    } = params;
     const institutionText = school ? `Assessment completed through ${school}\n` : '';
 
     const scoresText = Object.entries(scores)
@@ -480,9 +510,13 @@ Start assessment: ${this.assessmentUrl}
       .map(([key, value]) => `  ${key}: ${value} points`)
       .join('\n');
 
-    const careersText = matches.slice(0, 10).map((career, index) => 
-      `${index + 1}. ${career.careerName} (${career.matchScore}% match)\n   ${career.description}\n   Tags: ${career.tags.join(', ')}`
-    ).join('\n\n');
+    const careersText = matches
+      .slice(0, 10)
+      .map(
+        (career, index) =>
+          `${index + 1}. ${career.careerName} (${career.matchScore}% match)\n   ${career.description}\n   Tags: ${career.tags.join(', ')}`,
+      )
+      .join('\n\n');
 
     return `
 CAREER ASSESSMENT RESULTS

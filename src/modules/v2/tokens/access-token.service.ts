@@ -51,12 +51,12 @@ export class TokensService {
         maxUsage: 1,
         usageCount: 0,
         expiresAt,
-        ownerId: data.userId|| null,
+        ownerId: data.userId || null,
         amountPaid: data.amountPaid,
         paymentIntentId: data.paymentId,
         paymentStatus: PaymentStatus.COMPLETED,
         currency: 'NGN',
-        createdBy: data.isGuest ? 'GUEST_PURCHASE' : 'USER_PURCHASE', 
+        createdBy: data.isGuest ? 'GUEST_PURCHASE' : 'USER_PURCHASE',
       },
     });
 

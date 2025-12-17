@@ -7,11 +7,7 @@ import { TokenPurchaseController } from './token-purchase.controller';
 import { TokenPurchaseOrchestrator } from './token-purchase.orchestrator';
 
 @Module({
-  imports: [
-    PrismaModule,
-    PaymentsModule,       
-    AccessTokensModule,   
-  ],
+  imports: [PrismaModule, PaymentsModule, AccessTokensModule],
   controllers: [TokenPurchaseController],
   providers: [TokenPurchaseOrchestrator],
   exports: [TokenPurchaseOrchestrator],

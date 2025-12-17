@@ -227,7 +227,7 @@ export class AssessmentsService {
     this.logger.log(
       `🔑 Result request: ${dto.firstName} ${dto.lastName} (${dto.class}) - Token: ${dto.accessToken}`,
     );
-    
+
     // Step 1: Validate access token
     const tokenValidation = await this.accessTokensService.validateToken(dto.accessToken);
     if (!tokenValidation.valid) {
@@ -240,7 +240,7 @@ export class AssessmentsService {
     this.logger.log(
       `✅ Token valid: ${token.type} - ${token.school || 'N/A'} (${token.usageCount}/${token.maxUsage})`,
     );
-    
+
     // Step 2: Fetch test result
     const result = await this.prisma.testResult.findUnique({
       where: { sessionToken: dto.sessionToken },
@@ -255,11 +255,11 @@ export class AssessmentsService {
         aiRecommendation: true,
       },
     });
-    
+
     if (!result) {
       throw new NotFoundException('Test result not found for this session');
     }
-    
+
     // Step 3: Check if this token has already unlocked this result
     const existingUsage = await this.prisma.tokenUsage.findUnique({
       where: {
@@ -269,11 +269,11 @@ export class AssessmentsService {
         },
       },
     });
-    
+
     let isReview = false;
     let viewCount = 1;
     let unlockedAt = new Date();
-    
+
     if (existingUsage) {
       // Already unlocked - this is a REVIEW
       isReview = true;
@@ -282,7 +282,7 @@ export class AssessmentsService {
       this.logger.log(
         `♻️ Review access: Already unlocked on ${unlockedAt.toISOString()} (view #${viewCount})`,
       );
-      
+
       // Update view count and lastViewedAt (does NOT increment usageCount)
       await this.prisma.tokenUsage.update({
         where: { id: existingUsage.id },
@@ -310,21 +310,21 @@ export class AssessmentsService {
             lastViewedAt: new Date(),
           },
         });
-        
+
         // Increment token usage count (ONLY for new unlocks)
         await this.accessTokensService.markTokenUsed(dto.accessToken);
       });
-      
+
       this.logger.log(
         `✅ Result unlocked: ${dto.firstName} ${dto.lastName} (${dto.class}) → ${result.id}`,
       );
-      
+
       // Step 4: Send results email to parent (only on first unlock AND if email provided)
       if (dto.parentEmail) {
         try {
           const matches = result.matchedCareers as any[];
           const aiRecommendation = result.aiRecommendation as any;
-          
+
           await this.emailService.sendResults({
             parentEmail: dto.parentEmail,
             studentName: `${dto.firstName} ${dto.lastName}`,
@@ -334,7 +334,7 @@ export class AssessmentsService {
             scores: result.scores as Record<string, number>,
             totalScore: result.totalScore,
             tier: result.tier || 'N/A',
-            matches: matches.map(m => ({
+            matches: matches.map((m) => ({
               careerName: m.careerName,
               description: m.description,
               matchScore: m.matchScore,
@@ -351,7 +351,7 @@ export class AssessmentsService {
               },
             },
           });
-          
+
           this.logger.log(`📧 Results email sent to ${dto.parentEmail}`);
         } catch (emailError) {
           // Log error but don't fail the request
@@ -361,7 +361,7 @@ export class AssessmentsService {
         this.logger.log(`ℹ️ No parent email provided - skipping results email`);
       }
     }
-    
+
     // Step 5: Return result with student info and access metadata
     return {
       // Student info
@@ -594,13 +594,11 @@ export class AssessmentsService {
     };
   }
 
-
-
   async adminSendResultsBySession(dto: AdminSendResultsDto) {
     this.logger.log(
       `🔧 [ADMIN] Sending results for session ${dto.sessionToken} to ${dto.recipientEmail}`,
     );
-  
+
     // Step 1: Fetch test result by session token
     const result = await this.prisma.testResult.findUnique({
       where: { sessionToken: dto.sessionToken },
@@ -615,20 +613,18 @@ export class AssessmentsService {
         aiRecommendation: true,
       },
     });
-  
+
     if (!result) {
-      throw new NotFoundException(
-        `Test result not found for session token: ${dto.sessionToken}`,
-      );
+      throw new NotFoundException(`Test result not found for session token: ${dto.sessionToken}`);
     }
-  
+
     this.logger.log(`✅ Found result ${result.id} - Career Code: ${result.careerCode}`);
-  
+
     // Step 2: Send results email
     try {
       const matches = result.matchedCareers as any[];
       const aiRecommendation = result.aiRecommendation as any;
-  
+
       await this.emailService.sendResults({
         parentEmail: dto.recipientEmail,
         studentName: dto.studentName,
@@ -655,9 +651,9 @@ export class AssessmentsService {
           },
         },
       });
-  
+
       this.logger.log(`📧 [ADMIN] Results email sent to ${dto.recipientEmail}`);
-  
+
       return {
         success: true,
         message: 'Results email sent successfully',

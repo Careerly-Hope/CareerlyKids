@@ -1,24 +1,10 @@
-import { 
-  Injectable, 
-  NotFoundException, 
-  Logger, 
-  BadRequestException,
-  ConflictException,
-  Inject,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, Logger, BadRequestException, Inject } from '@nestjs/common';
 import { User as ClerkUser, ClerkClient } from '@clerk/backend';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
-import { 
-  UserRole as PrismaUserRole,
-  AccountStatus, 
-  Prisma 
-} from '@prisma/client';
+import { UserRole as PrismaUserRole, AccountStatus } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
-import { 
-  UserRole,
-  isValidUserRole 
-} from '../../../common/enums/user-role.enum';
+import { UserRole, isValidUserRole } from '../../../common/enums/user-role.enum';
 import { ClerkWebhookEvent } from './dto/clerk-webhook.dto';
 
 @Injectable()
@@ -44,7 +30,7 @@ export class AuthService {
    */
   async handleUserCreated(event: ClerkWebhookEvent) {
     const { data } = event;
-    
+
     try {
       const email = data.email_addresses[0]?.email_address;
       if (!email) {
@@ -69,14 +55,15 @@ export class AuthService {
           school: customFields.school as string,
           grade: customFields.grade as string,
           bio: customFields.bio as string,
-          dateOfBirth: customFields.dateOfBirth ? new Date(customFields.dateOfBirth as string) : null,
+          dateOfBirth: customFields.dateOfBirth
+            ? new Date(customFields.dateOfBirth as string)
+            : null,
           lastLoginAt: new Date(),
         },
       });
 
       this.logger.log(`✅ User created via webhook: ${email} (${role})`);
       return user;
-
     } catch (error) {
       this.logger.error('Error handling user.created webhook:', error);
       throw error;
@@ -89,7 +76,7 @@ export class AuthService {
    */
   async handleUserUpdated(event: ClerkWebhookEvent) {
     const { data } = event;
-    
+
     try {
       const email = data.email_addresses[0]?.email_address;
       const role = this.extractRoleFromMetadata(data.public_metadata, data.private_metadata);
@@ -106,14 +93,15 @@ export class AuthService {
           school: customFields.school as string,
           grade: customFields.grade as string,
           bio: customFields.bio as string,
-          dateOfBirth: customFields.dateOfBirth ? new Date(customFields.dateOfBirth as string) : null,
+          dateOfBirth: customFields.dateOfBirth
+            ? new Date(customFields.dateOfBirth as string)
+            : null,
           lastLoginAt: new Date(),
         },
       });
 
       this.logger.log(`✅ User updated via webhook: ${email}`);
       return user;
-
     } catch (error) {
       this.logger.error('Error handling user.updated webhook:', error);
       throw error;
@@ -126,14 +114,13 @@ export class AuthService {
    */
   async handleUserDeleted(event: ClerkWebhookEvent) {
     const { data } = event;
-    
+
     try {
       await this.prisma.user.delete({
         where: { clerkId: data.id },
       });
 
       this.logger.log(`✅ User deleted via webhook: ${data.id}`);
-
     } catch (error) {
       if (error.code === 'P2025') {
         this.logger.warn(`User ${data.id} not found in database for deletion`);
@@ -152,7 +139,7 @@ export class AuthService {
    */
   private extractRoleFromMetadata(
     publicMetadata: Record<string, any>,
-    privateMetadata: Record<string, any>
+    privateMetadata: Record<string, any>,
   ): UserRole {
     // Priority 1: Private metadata (admin-set, more secure)
     const privateRole = privateMetadata?.role;
@@ -222,7 +209,7 @@ export class AuthService {
 
     const role = this.extractRoleFromMetadata(
       clerkUser.publicMetadata as Record<string, any>,
-      clerkUser.privateMetadata as Record<string, any>
+      clerkUser.privateMetadata as Record<string, any>,
     );
 
     const customFields = (clerkUser.publicMetadata as Record<string, any>) || {};
@@ -266,18 +253,19 @@ export class AuthService {
 
     // 2. Sync to Clerk metadata (for custom fields)
     const metadataUpdates: Record<string, any> = {};
-    
+
     if (updateProfileDto.school !== undefined) metadataUpdates.school = updateProfileDto.school;
     if (updateProfileDto.grade !== undefined) metadataUpdates.grade = updateProfileDto.grade;
     if (updateProfileDto.bio !== undefined) metadataUpdates.bio = updateProfileDto.bio;
-    if (updateProfileDto.dateOfBirth !== undefined) metadataUpdates.dateOfBirth = updateProfileDto.dateOfBirth;
+    if (updateProfileDto.dateOfBirth !== undefined)
+      metadataUpdates.dateOfBirth = updateProfileDto.dateOfBirth;
 
     // 3. Update Clerk user (built-in fields + metadata)
     const clerkUpdates: any = {};
-    
+
     if (updateProfileDto.firstName) clerkUpdates.firstName = updateProfileDto.firstName;
     if (updateProfileDto.lastName) clerkUpdates.lastName = updateProfileDto.lastName;
-    
+
     // Update public metadata with custom fields
     if (Object.keys(metadataUpdates).length > 0) {
       clerkUpdates.publicMetadata = metadataUpdates;
@@ -291,7 +279,6 @@ export class AuthService {
     return user;
   }
 
- 
   /**
    * Delete user account - deletes from Clerk (webhook will delete from DB)
    */
@@ -299,7 +286,7 @@ export class AuthService {
     try {
       // Delete from Clerk first
       await this.clerkClient.users.deleteUser(clerkId);
-      
+
       this.logger.log(`✅ User deleted from Clerk: ${clerkId}`);
 
       // Webhook will handle DB deletion, but do it here too for immediate response
@@ -310,7 +297,6 @@ export class AuthService {
       return {
         message: 'Account deleted successfully',
       };
-
     } catch (error) {
       this.logger.error('Error deleting account:', error);
       throw new BadRequestException('Failed to delete account');
@@ -329,16 +315,16 @@ export class AuthService {
 
     try {
       const users = await this.clerkClient.users.getUserList({ emailAddress: [email] });
-      
+
       if (!users.data || users.data.length === 0) {
         throw new NotFoundException(`User with email ${email} not found in Clerk`);
       }
 
       const clerkUser = users.data[0];
 
-      const sessionsList = await this.clerkClient.sessions.getSessionList({ 
+      const sessionsList = await this.clerkClient.sessions.getSessionList({
         userId: clerkUser.id,
-        status: 'active'
+        status: 'active',
       });
 
       let sessionId: string;
@@ -373,7 +359,6 @@ export class AuthService {
           postman: 'Add header: Authorization: Bearer <token>',
         },
       };
-
     } catch (error) {
       this.logger.error('Error generating test token:', error);
       throw new BadRequestException(`Failed to generate token: ${error.message}`);
@@ -427,7 +412,6 @@ export class AuthService {
           role: user.role,
         },
       };
-
     } catch (error) {
       this.logger.error('Error creating super admin:', error);
       throw new BadRequestException(`Failed to create super admin: ${error.message}`);

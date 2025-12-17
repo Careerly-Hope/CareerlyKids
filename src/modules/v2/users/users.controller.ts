@@ -1,7 +1,4 @@
-import {
-  Controller,
-  Get,
-} from '@nestjs/common';
+import { Controller, Get } from '@nestjs/common';
 import { User } from '@clerk/backend';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { UsersService } from './users.service';
@@ -18,9 +15,9 @@ export class UsersController {
    * Get user test history
    */
   @Get('test-history')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: '🟡 Get user test history',
-    description: 'All Authenticated - Returns test history for the current user'
+    description: 'All Authenticated - Returns test history for the current user',
   })
   @ApiResponse({ status: 200, description: 'Returns test history for the user.' })
   async getTestHistory(@CurrentUser() clerkUser: User) {

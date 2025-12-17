@@ -53,18 +53,8 @@ export class ApiResponse<T = any> {
     if (links) this.links = links;
   }
 
-  static success<T>(
-    data: T,
-    message = 'Request successful',
-    requestId?: string,
-  ): ApiResponse<T> {
-    return new ApiResponse(
-      ResponseStatus.SUCCESS,
-      message,
-      data,
-      null,
-      requestId,
-    );
+  static success<T>(data: T, message = 'Request successful', requestId?: string): ApiResponse<T> {
+    return new ApiResponse(ResponseStatus.SUCCESS, message, data, null, requestId);
   }
 
   static successWithPagination<T>(
@@ -74,29 +64,11 @@ export class ApiResponse<T = any> {
     message = 'Request successful',
     requestId?: string,
   ): ApiResponse<T> {
-    return new ApiResponse(
-      ResponseStatus.SUCCESS,
-      message,
-      data,
-      null,
-      requestId,
-      meta,
-      links,
-    );
+    return new ApiResponse(ResponseStatus.SUCCESS, message, data, null, requestId, meta, links);
   }
 
-  static error(
-    message: string,
-    errors: ErrorDetail[] = [],
-    requestId?: string,
-  ): ApiResponse<null> {
-    return new ApiResponse(
-      ResponseStatus.ERROR,
-      message,
-      null,
-      errors,
-      requestId,
-    );
+  static error(message: string, errors: ErrorDetail[] = [], requestId?: string): ApiResponse<null> {
+    return new ApiResponse(ResponseStatus.ERROR, message, null, errors, requestId);
   }
 
   static created<T>(
@@ -104,12 +76,6 @@ export class ApiResponse<T = any> {
     message = 'Resource created successfully',
     requestId?: string,
   ): ApiResponse<T> {
-    return new ApiResponse(
-      ResponseStatus.SUCCESS,
-      message,
-      data,
-      null,
-      requestId,
-    );
+    return new ApiResponse(ResponseStatus.SUCCESS, message, data, null, requestId);
   }
 }

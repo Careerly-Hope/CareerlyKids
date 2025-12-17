@@ -1,4 +1,3 @@
-
 // src/modules/v2/payments/dto/payment-query.dto.ts
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsEnum, IsNumber, Min } from 'class-validator';

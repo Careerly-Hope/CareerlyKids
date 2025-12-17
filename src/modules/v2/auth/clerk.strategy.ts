@@ -67,10 +67,13 @@ export class ClerkStrategy extends PassportStrategy(Strategy, 'clerk') {
   async validate(req: Request): Promise<AuthenticatedUser> {
     console.log('🎫 ClerkStrategy - Validating token');
     console.log('🎫 ClerkStrategy - URL:', req.url);
-    console.log('🎫 ClerkStrategy - Auth header:', req.headers.authorization?.substring(0, 20) + '...');
-    
+    console.log(
+      '🎫 ClerkStrategy - Auth header:',
+      req.headers.authorization?.substring(0, 20) + '...',
+    );
+
     const authHeader = req.headers.authorization;
-  
+
     if (!authHeader) {
       console.log('❌ ClerkStrategy - NO AUTH HEADER!');
       throw new UnauthorizedException('No authorization header provided');
@@ -132,7 +135,6 @@ export class ClerkStrategy extends PassportStrategy(Strategy, 'clerk') {
         ...clerkUser,
         dbUser,
       } as AuthenticatedUser;
-
     } catch (error) {
       this.logger.error('Token verification error:', error);
 
@@ -270,7 +272,7 @@ export class ClerkStrategy extends PassportStrategy(Strategy, 'clerk') {
     // Extract role from metadata
     const role = this.extractRoleFromMetadata(
       clerkUser.publicMetadata as Record<string, any>,
-      clerkUser.privateMetadata as Record<string, any>
+      clerkUser.privateMetadata as Record<string, any>,
     );
 
     // Extract custom fields
@@ -325,7 +327,7 @@ export class ClerkStrategy extends PassportStrategy(Strategy, 'clerk') {
    */
   private extractRoleFromMetadata(
     publicMetadata: Record<string, any>,
-    privateMetadata: Record<string, any>
+    privateMetadata: Record<string, any>,
   ): UserRole {
     // Priority 1: Private metadata (admin-set, more secure)
     const privateRole = privateMetadata?.role;
@@ -505,9 +507,7 @@ export class ClerkStrategy extends PassportStrategy(Strategy, 'clerk') {
         }
       }
 
-      throw new InternalServerErrorException(
-        'Failed to get or create default test user',
-      );
+      throw new InternalServerErrorException('Failed to get or create default test user');
     }
   }
 

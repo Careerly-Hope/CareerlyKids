@@ -18,37 +18,37 @@ import { AdminSendResultsDto } from './dto/admin-send-results.dto';
 
 /**
  * 🎯 CAREER ASSESSMENTS
- * 
+ *
  * This controller manages the RIASEC career assessment system.
- * 
+ *
  * **ASSESSMENT FLOW:**
  * 1. Start Test → Get 60 randomized questions
  * 2. Submit Test → Receive session token & result ID
  * 3. Get Result → View results using access token + student info
- * 
+ *
  * **USER ROLES & PERMISSIONS:**
- * 
+ *
  * 🟠 PUBLIC (No Authentication)
  *    - Start new test session
  *    - Submit test responses
  *    - View results with access token (token-based, no auth required)
  *    - Submit feedback
- * 
+ *
  * 🔵 ADMIN (Organization Management)
  *    - All public operations
  *    - View token usage reports
  *    - Manually send results to any email
  *    - Track usage by class/grade
- * 
+ *
  * 🔴 SUPER_ADMIN (Full Platform Access)
  *    - All admin operations
  *    - Platform-wide analytics
- * 
+ *
  * **ACCESS TOKEN SYSTEM:**
  * - First view: Token usage count increments (unlocks result)
  * - Subsequent views: Same student unlimited reviews (no additional charge)
  * - Tracks which students accessed which results
- * 
+ *
  * **ASSESSMENT DETAILS:**
  * - 60 randomized questions from RIASEC categories
  * - AI-powered stream recommendations
@@ -63,7 +63,7 @@ export class AssessmentsController {
 
   @Post('start')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ 
+  @ApiOperation({
     summary: '🟠 Start a new RIASEC test session',
     description: `
 **Roles:** PUBLIC (No authentication required)
@@ -76,7 +76,7 @@ Start a new career assessment session.
 - Question IDs for submission
 
 **Categories:** Realistic, Investigative, Artistic, Social, Enterprising, Conventional
-    `
+    `,
   })
   @ApiResponse({
     status: 200,
@@ -89,7 +89,7 @@ Start a new career assessment session.
 
   @Post('submit')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ 
+  @ApiOperation({
     summary: '🟠 Submit test responses',
     description: `
 **Roles:** PUBLIC (No authentication required)
@@ -104,7 +104,7 @@ Submit completed test responses and generate results.
 5. Stores result with session token
 
 **Important:** To view results, you need an access token. Use the \`GET /result\` endpoint.
-    `
+    `,
   })
   @ApiResponse({
     status: 200,
@@ -167,10 +167,10 @@ View test results using an access token and student information.
     example: 'LINCO-A3F8',
   })
   @ApiQuery({ name: 'sessionToken', description: 'Session token from test submission' })
-  @ApiQuery({ 
-    name: 'parentEmail', 
-    description: 'Parent email (optional - for auto-sending results)', 
-    required: false 
+  @ApiQuery({
+    name: 'parentEmail',
+    description: 'Parent email (optional - for auto-sending results)',
+    required: false,
   })
   @ApiResponse({
     status: 200,
@@ -306,7 +306,7 @@ Shows usage statistics grouped by student class/grade.
 
   @Post('feedback')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ 
+  @ApiOperation({
     summary: '🟠 Submit feedback on results',
     description: `
 **Roles:** PUBLIC (No authentication required)
@@ -321,7 +321,7 @@ Provide feedback and rating for assessment results.
 
 **Rating:** 1-5 stars
 **Feedback:** Optional text feedback
-    `
+    `,
   })
   @ApiResponse({
     status: 200,

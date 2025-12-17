@@ -12,11 +12,11 @@ export class UsersService {
     const user = await this.prisma.user.findUnique({
       where: { clerkId },
     });
-    
+
     if (!user) {
       throw new NotFoundException('User not found');
     }
-    
+
     return user;
   }
 
@@ -25,7 +25,7 @@ export class UsersService {
    */
   async getTestHistory(clerkId: string) {
     const user = await this.getUserByClerkId(clerkId);
-    
+
     return await this.prisma.userTestSession.findMany({
       where: { userId: user.id },
       include: {

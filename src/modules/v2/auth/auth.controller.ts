@@ -12,7 +12,7 @@ import {
   Req,
   BadRequestException,
 } from '@nestjs/common';
- import { CurrentUser } from '../../../common/decorators/current-user.decorator';
+import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { AuthService } from './auth.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import {
@@ -142,7 +142,7 @@ export class AuthController {
   })
   @SwaggerResponse({ status: 200, description: 'Profile updated successfully.' })
   async updateProfile(@CurrentUser() user: AuthenticatedUser, @Body() dto: UpdateProfileDto) {
-     const updated = await this.authService.updateProfile(user.id, dto);
+    const updated = await this.authService.updateProfile(user.id, dto);
     return ApiResponse.success(updated, 'Profile updated successfully');
   }
 

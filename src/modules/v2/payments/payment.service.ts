@@ -55,7 +55,9 @@ export class PaymentsService {
     };
     callbackUrl?: string;
   }) {
-    this.logger.log(`Initializing Paystack transaction for ${params.email}${params.metadata.isGuest ? ' (GUEST)' : ''}`);
+    this.logger.log(
+      `Initializing Paystack transaction for ${params.email}${params.metadata.isGuest ? ' (GUEST)' : ''}`,
+    );
 
     const reference = this.generateReference();
     const amountInKobo = params.amount * 100;
@@ -64,7 +66,7 @@ export class PaymentsService {
     const payment = await this.prisma.payment.create({
       data: {
         reference,
-        userId: params.userId||null,
+        userId: params.userId || null,
         guestEmail: params.metadata.isGuest ? params.email : null, // ✅ Store guest email
 
         amount: amountInKobo,
@@ -95,7 +97,7 @@ export class PaymentsService {
 
       if (!response.ok || !data.status) {
         this.logger.error('Paystack initialization failed:', data);
-        
+
         // Mark payment as failed
         await this.updatePaymentStatus(payment.id, PaymentStatus.FAILED, {
           failedAt: new Date(),
@@ -141,15 +143,12 @@ export class PaymentsService {
     this.logger.log(`Verifying Paystack transaction: ${reference}`);
 
     try {
-      const response = await fetch(
-        `${this.paystackBaseUrl}/transaction/verify/${reference}`,
-        {
-          method: 'GET',
-          headers: {
-            Authorization: `Bearer ${this.paystackSecretKey}`,
-          },
+      const response = await fetch(`${this.paystackBaseUrl}/transaction/verify/${reference}`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${this.paystackSecretKey}`,
         },
-      );
+      });
 
       const data = await response.json();
 

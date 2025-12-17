@@ -35,12 +35,11 @@ async function bootstrap() {
     }),
   );
 
- 
-
   // Swagger setup for V2 - ONLY V2 routes - FIXED HERE
   const configV2 = new DocumentBuilder()
     .setTitle('CareerlyKids API - V2')
-    .setDescription(`
+    .setDescription(
+      `
       ## 🎓 CareerlyKids API
       
       Career assessment & guidance platform for students, schools, and organizations.
@@ -106,8 +105,9 @@ async function bootstrap() {
       ---
       
       📩 **Support:** support@careerlykids.com
-      `)
-      
+      `,
+    )
+
     .setVersion('2.0')
     .addBearerAuth(
       {
@@ -120,12 +120,10 @@ async function bootstrap() {
       },
       'bearer',
     )
-    
+
     .build();
   const documentV2 = SwaggerModule.createDocument(app, configV2, {
-    include: [
-      (await import('./modules/v2/v2.module')).V2Module,
-    ],
+    include: [(await import('./modules/v2/v2.module')).V2Module],
     deepScanRoutes: true,
   });
   SwaggerModule.setup('api/v2/docs', app, documentV2, {
@@ -168,17 +166,17 @@ async function bootstrap() {
   console.log(`📍 Environment: ${nodeEnv}`);
   console.log(`🚀 Application: http://localhost:${port}`);
   console.log(`📚 Main Docs: http://localhost:${port}/api/docs`);
-   console.log(`📗 V2 Docs: http://localhost:${port}/api/v2/docs`);
+  console.log(`📗 V2 Docs: http://localhost:${port}/api/v2/docs`);
   console.log(`💚 Health Check: http://localhost:${port}/health`);
   console.log(`📍 Root Info: http://localhost:${port}/api`);
-  
+
   if (process.env.CORS_ENABLED === 'true') {
     const origins = process.env.CORS_ORIGINS || 'all origins (development)';
     console.log(`🌐 CORS enabled for: ${origins}`);
   } else {
     console.log('🔒 CORS disabled');
   }
-  
+
   console.log('\n✨ Available API Versions:');
   console.log('   V1: /api/v1/* (Active - Simple Assessment)');
   console.log('   V2: /api/v2/* (In Development - Full Platform)');

@@ -1,4 +1,3 @@
-
 export interface PaystackWebhookDto {
   event: string;
   data: {

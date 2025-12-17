@@ -1,6 +1,10 @@
 import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { UserRole, SelfRegistrationRole, RoleGroups } from '../../../../common/enums/user-role.enum';
+import {
+  UserRole,
+  SelfRegistrationRole,
+  RoleGroups,
+} from '../../../../common/enums/user-role.enum';
 
 export class RegisterDto {
   @ApiProperty({
@@ -9,11 +13,11 @@ export class RegisterDto {
     example: UserRole.STUDENT,
     required: true,
   })
-  @IsEnum(UserRole, { 
-    message: `Role must be one of: ${RoleGroups.SELF_REGISTRATION.join(', ')}` 
+  @IsEnum(UserRole, {
+    message: `Role must be one of: ${RoleGroups.SELF_REGISTRATION.join(', ')}`,
   })
   @IsNotEmpty()
-  role: SelfRegistrationRole; 
+  role: SelfRegistrationRole;
 
   @ApiProperty({
     description: 'User email address',

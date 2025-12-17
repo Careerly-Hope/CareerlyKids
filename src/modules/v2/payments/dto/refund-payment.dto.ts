@@ -1,5 +1,3 @@
-
-
 // src/modules/v2/payments/dto/refund-payment.dto.ts
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsString, IsOptional } from 'class-validator';
