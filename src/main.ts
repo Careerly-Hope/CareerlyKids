@@ -232,7 +232,7 @@ async function bootstrap() {
   const port = process.env.PORT || 3000;
   const nodeEnv = process.env.NODE_ENV || 'development';
 
-  await app.listen(port);
+  await app.listen(port, '0.0.0.0');
 
   console.log('\n🎉 CareerlyKids API Started Successfully!\n');
   // console.log(`📍 Environment: ${nodeEnv}`);

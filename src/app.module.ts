@@ -3,7 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
-// import { HealthModule } from './common/health/health.module';
+import { HealthModule } from './common/health/health.module';
 // import { V1Module } from './modules/v1/v1.module';
 import { V2Module } from './modules/v2/v2.module';
 import { ClerkClientProvider } from './providers/clerk-client.provider';
@@ -30,7 +30,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
       ignoreErrors: false,
     }),
     PrismaModule,
-    // HealthModule,
+    HealthModule,
     V2Module,
   ],
   controllers: [AppController],
