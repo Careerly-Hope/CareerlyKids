@@ -6,8 +6,10 @@ import {
   WakeResponseDto,
   DetailedHealthResponseDto,
 } from './dto/health-response.dto';
+import { Public } from '../decorators/public.decorator';
 
 @ApiTags('health')
+@Public()
 @Controller('health')
 export class HealthController {
   constructor(private readonly healthService: HealthService) {}
