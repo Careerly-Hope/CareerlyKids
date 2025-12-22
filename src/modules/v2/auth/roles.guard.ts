@@ -1,55 +1,35 @@
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ROLES_KEY } from '../../../common/decorators/roles.decorator';
-import { PrismaService } from '../../../prisma/prisma.service';
 import { UserRole } from '../../../common/enums/user-role.enum';
+import { AuthenticatedUser } from 'src/common/interfaces/authenticated-user.interface';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
-  constructor(
-    private reflector: Reflector,
-    private prisma: PrismaService,
-  ) {}
+  constructor(private reflector: Reflector) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest();
-    console.log('👮 RolesGuard - URL:', request.url);
-    console.log('👮 RolesGuard - User exists?', !!request.user);
-    console.log('👮 RolesGuard - User:', request.user?.dbUser?.email);
-
     const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(ROLES_KEY, [
       context.getHandler(),
       context.getClass(),
     ]);
 
-    console.log('👮 RolesGuard - Required roles:', requiredRoles);
-
     if (!requiredRoles) {
-      console.log('👮 RolesGuard - No roles required, allowing');
       return true;
     }
 
-    // const request = context.switchToHttp().getRequest();
-    const clerkUser = request.user;
+    const request = context.switchToHttp().getRequest();
+    const user = request.user as AuthenticatedUser;
 
-    if (!clerkUser) {
+    if (!user?.dbUser) {
       throw new ForbiddenException('User not authenticated');
     }
 
-    const user = await this.prisma.user.findUnique({
-      where: { clerkId: clerkUser.id },
-    });
-
-    if (!user) {
-      throw new ForbiddenException('User not found in database');
-    }
-
-    // ✅ Compare string values (both enums have same string values)
-    const hasRole = requiredRoles.some((role) => role === user.role);
+    const hasRole = requiredRoles.includes(user.dbUser.role as UserRole);
 
     if (!hasRole) {
       throw new ForbiddenException(
-        `Access denied. Required roles: ${requiredRoles.join(', ')}. Your role: ${user.role}`,
+        `Access denied. Required: ${requiredRoles.join(', ')}`
       );
     }
 

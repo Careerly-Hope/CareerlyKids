@@ -41,6 +41,15 @@ export class AuthController {
   // WEBHOOK ENDPOINT
   // ============================================
 
+
+  @Get('test-timeout')
+  @Public()
+  async testTimeout() {
+    await new Promise((resolve) => setTimeout(resolve, 60000));
+    return { ok: true };
+  }
+
+
   @Post('webhook/clerk')
   @Public()
   @HttpCode(HttpStatus.OK)
