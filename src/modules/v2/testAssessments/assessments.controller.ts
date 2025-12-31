@@ -15,6 +15,7 @@ import { TestResultDto } from './dto/assessment-result.dto';
 import { FeedBackDto } from './dto/submit-feedback.dto';
 import { GetResultDto } from './dto/get-results.dto';
 import { AdminSendResultsDto } from './dto/admin-send-results.dto';
+import { Public } from 'src/common/decorators/public.decorator';
 
 /**
  * 🎯 CAREER ASSESSMENTS
@@ -56,6 +57,7 @@ import { AdminSendResultsDto } from './dto/admin-send-results.dto';
  * - Comprehensive PDF reports
  */
 @ApiTags('Assessments')
+@Public()
 @ApiBearerAuth('bearer')
 @Controller('v2/assessments')
 export class AssessmentsController {

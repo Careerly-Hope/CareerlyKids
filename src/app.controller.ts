@@ -26,4 +26,7 @@ export class AppController {
       message: 'Welcome to Careerly Kids Career Assessment Platform',
     };
   }
+
+ 
+
 }
