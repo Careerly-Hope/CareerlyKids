@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
@@ -13,6 +13,7 @@ import { ClerkAuthGuard } from './modules/v2/auth/clerk-auth.guard';
 import { RolesGuard } from './modules/v2/auth/roles.guard';
 import { RequestIdInterceptor } from './common/interceptor/request-id.interceptor';
 import { getRateLimitConfig } from './config/rate-limiting.config';
+import { RequestContextMiddleware } from './common/middleware/request-context.middleware';
 // import { getRateLimitConfig } from './config/rate-limit.config';
 
 @Module({
@@ -44,4 +45,11 @@ import { getRateLimitConfig } from './config/rate-limiting.config';
     },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    // ✅ Apply to ALL routes
+    consumer
+      .apply(RequestContextMiddleware)
+      .forRoutes('*');
+  }
+}

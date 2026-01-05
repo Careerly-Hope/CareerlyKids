@@ -11,6 +11,7 @@ import {
   RawBodyRequest,
   Req,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { AuthService } from './auth.service';
@@ -28,19 +29,18 @@ import { Webhook } from 'svix';
 import { ConfigService } from '@nestjs/config';
 import { ClerkWebhookEvent } from './dto/clerk-webhook.dto';
 import { AuthenticatedUser } from 'src/common/interfaces/authenticated-user.interface';
+import { SkipThrottle } from '@nestjs/throttler';
+import { RequestContext, RequestMetadata } from 'src/common/decorators/request-metadata.decorator';
 
 @ApiTags('v2/Auth')
 @Controller('v2/auth')
 export class AuthController {
+  private readonly logger = new Logger(AuthController.name);
+
   constructor(
     private readonly authService: AuthService,
     private readonly configService: ConfigService,
   ) {}
-
-  // ============================================
-  // WEBHOOK ENDPOINT
-  // ============================================
-
 
   @Get('test-timeout')
   @Public()
@@ -49,9 +49,13 @@ export class AuthController {
     return { ok: true };
   }
 
+  // ============================================
+  // WEBHOOK ENDPOINT
+  // ============================================
 
   @Post('webhook/clerk')
   @Public()
+  @SkipThrottle() // ✅ Skip global rate limiting
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: '🔓 Handle Clerk webhooks',
@@ -74,21 +78,21 @@ export class AuthController {
     @Headers('svix-signature') svixSignature: string,
     @Req() req: RawBodyRequest<Request>,
   ) {
-    // Get raw body for signature verification
     const payload = req.body;
 
     if (!svixId || !svixTimestamp || !svixSignature) {
+      this.logger.warn('Missing svix headers in webhook request');
       throw new BadRequestException('Missing svix headers');
     }
 
     // Verify webhook signature
     const webhookSecret = this.configService.get('CLERK_WEBHOOK_SECRET');
     if (!webhookSecret) {
+      this.logger.error('Webhook secret not configured');
       throw new BadRequestException('Webhook secret not configured');
     }
 
     const wh = new Webhook(webhookSecret);
-
     let event: ClerkWebhookEvent;
 
     try {
@@ -98,28 +102,46 @@ export class AuthController {
         'svix-signature': svixSignature,
       }) as ClerkWebhookEvent;
     } catch (error) {
+      this.logger.error('Invalid webhook signature', error);
       throw new BadRequestException('Invalid webhook signature');
     }
 
-    // Handle different event types
-    switch (event.type) {
-      case 'user.created':
-        await this.authService.handleUserCreated(event);
-        break;
+    // ✅ Extract event ID for idempotency
+    const eventId = svixId; // Svix ID is unique per event
 
-      case 'user.updated':
-        await this.authService.handleUserUpdated(event);
-        break;
+    try {
+      // ✅ Handle different event types with idempotency
+      switch (event.type) {
+        case 'user.created':
+          await this.authService.handleUserCreated(event, eventId);
+          break;
 
-      case 'user.deleted':
-        await this.authService.handleUserDeleted(event);
-        break;
+        case 'user.updated':
+          await this.authService.handleUserUpdated(event, eventId);
+          break;
 
-      default:
-        console.log(`Unhandled webhook event: ${event.type}`);
+        case 'user.deleted':
+          await this.authService.handleUserDeleted(event, eventId);
+          break;
+
+        default:
+          this.logger.warn(`Unhandled webhook event type: ${event.type}`);
+      }
+
+      return { success: true };
+    } catch (error) {
+      // ✅ Enhanced error handling
+      this.logger.error(`Webhook processing error for event ${eventId}:`, error);
+
+      // Known errors - return 200 so Clerk doesn't retry
+      if (error.code === 'P2002' || error.code === 'P2025') {
+        this.logger.warn('Known database error, returning success to prevent retry');
+        return { success: true, note: 'Duplicate or not found, ignored' };
+      }
+
+      // Unknown errors - return 500 so Clerk retries
+      throw error;
     }
-
-    return { success: true };
   }
 
   // ============================================
@@ -150,8 +172,24 @@ export class AuthController {
     type: UpdateProfileDto,
   })
   @SwaggerResponse({ status: 200, description: 'Profile updated successfully.' })
-  async updateProfile(@CurrentUser() user: AuthenticatedUser, @Body() dto: UpdateProfileDto) {
-    const updated = await this.authService.updateProfile(user.id, dto);
+  async updateProfile(
+    @CurrentUser() user: AuthenticatedUser['dbUser'],
+    @Body() dto: UpdateProfileDto,
+    @RequestContext() context: RequestMetadata,
+  ) {
+    // ✅ Three-layer identity model:
+    // - user.clerkId = Clerk's ID (stored in DB, used for Clerk API calls)
+    // - user.id = Database UUID (used for foreign keys)
+    // - context = Request metadata (created once by middleware)
+    
+    const updated = await this.authService.updateProfile(
+      user.clerkId,        // ✅ Clerk ID from database
+      dto,
+      user.id,             // ✅ Database UUID
+      context.requestId,   // ✅ From middleware (single source of truth)
+      context.ipAddress,   // ✅ From Express with trust proxy
+    );
+    
     return ApiResponse.success(updated, 'Profile updated successfully');
   }
 
@@ -162,8 +200,17 @@ export class AuthController {
     description: 'Deletes user account from both Clerk and database.',
   })
   @SwaggerResponse({ status: 200, description: 'Account deleted successfully.' })
-  async deleteAccount(@CurrentUser() user: AuthenticatedUser) {
-    const result = await this.authService.deleteAccount(user.id);
+  async deleteAccount(
+    @CurrentUser() user: AuthenticatedUser['dbUser'],
+    @RequestContext() context: RequestMetadata,
+  ) {
+    const result = await this.authService.deleteAccount(
+      user.clerkId,       
+      user.id,            
+      context.requestId,  
+      context.ipAddress,  
+    );
+    
     return ApiResponse.success(result, 'Account deleted successfully');
   }
 

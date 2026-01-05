@@ -1,11 +1,21 @@
-import { Injectable, NotFoundException, Logger, BadRequestException, Inject } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  Logger,
+  BadRequestException,
+  Inject,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { User as ClerkUser, ClerkClient } from '@clerk/backend';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UserRole as PrismaUserRole, AccountStatus } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
-import { UserRole, isValidUserRole } from '../../../common/enums/user-role.enum';
+import { UserRole } from '../../../common/enums/user-role.enum';
 import { ClerkWebhookEvent } from './dto/clerk-webhook.dto';
+import { WebhookIdempotencyService } from './webhook-idempotency.service';
+import { AuditService } from '../audit/audit.service';
+import { extractRoleFromMetadata } from '../../../common/utils/role-metadata.util';
 
 @Injectable()
 export class AuthService {
@@ -15,6 +25,8 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    private readonly webhookIdempotency: WebhookIdempotencyService,
+    private readonly auditService: AuditService,
     @Inject('ClerkClient') private readonly clerkClient: ClerkClient,
   ) {
     this.isDevelopment = this.configService.get('NODE_ENV') === 'development';
@@ -28,8 +40,15 @@ export class AuthService {
    * Handle user.created webhook event
    * Creates user in database when they sign up in Clerk
    */
-  async handleUserCreated(event: ClerkWebhookEvent) {
+  async handleUserCreated(event: ClerkWebhookEvent, eventId: string) {
     const { data } = event;
+
+    // ✅ Check idempotency first
+    const shouldProcess = await this.webhookIdempotency.shouldProcess(eventId, event.type);
+    if (!shouldProcess) {
+      this.logger.log(`Skipping duplicate user.created event: ${eventId}`);
+      return;
+    }
 
     try {
       const email = data.email_addresses[0]?.email_address;
@@ -37,10 +56,8 @@ export class AuthService {
         throw new BadRequestException('Email is required');
       }
 
-      // Determine role from metadata with fallback to STUDENT
-      const role = this.extractRoleFromMetadata(data.public_metadata, data.private_metadata);
-
-      // Extract custom fields from public metadata
+      // Extract role and custom fields
+      const role = extractRoleFromMetadata(data.public_metadata, data.private_metadata);
       const customFields = data.public_metadata || {};
 
       const user = await this.prisma.user.create({
@@ -63,9 +80,20 @@ export class AuthService {
       });
 
       this.logger.log(`✅ User created via webhook: ${email} (${role})`);
+
+      // ✅ Audit log
+      await this.auditService.logWebhookUserCreated(user.id, user.clerkId, eventId);
+
       return user;
     } catch (error) {
       this.logger.error('Error handling user.created webhook:', error);
+
+      // ✅ Return 200 for known errors to prevent Clerk retry
+      if (error.code === 'P2002') {
+        this.logger.warn(`User already exists: ${data.id}`);
+        return;
+      }
+
       throw error;
     }
   }
@@ -74,22 +102,46 @@ export class AuthService {
    * Handle user.updated webhook event
    * Syncs user updates from Clerk to database
    */
-  async handleUserUpdated(event: ClerkWebhookEvent) {
+  async handleUserUpdated(event: ClerkWebhookEvent, eventId: string) {
     const { data } = event;
+
+    // ✅ Check idempotency
+    const shouldProcess = await this.webhookIdempotency.shouldProcess(eventId, event.type);
+    if (!shouldProcess) {
+      this.logger.log(`Skipping duplicate user.updated event: ${eventId}`);
+      return;
+    }
 
     try {
       const email = data.email_addresses[0]?.email_address;
-      const role = this.extractRoleFromMetadata(data.public_metadata, data.private_metadata);
+      const role = extractRoleFromMetadata(data.public_metadata, data.private_metadata);
       const customFields = data.public_metadata || {};
 
-      const user = await this.prisma.user.update({
+      // ✅ Use upsert to handle missing users
+      const user = await this.prisma.user.upsert({
         where: { clerkId: data.id },
-        data: {
+        update: {
           email,
           firstName: data.first_name,
           lastName: data.last_name,
           imageUrl: data.image_url,
           role: role as PrismaUserRole,
+          school: customFields.school as string,
+          grade: customFields.grade as string,
+          bio: customFields.bio as string,
+          dateOfBirth: customFields.dateOfBirth
+            ? new Date(customFields.dateOfBirth as string)
+            : null,
+          lastLoginAt: new Date(),
+        },
+        create: {
+          clerkId: data.id,
+          email,
+          firstName: data.first_name,
+          lastName: data.last_name,
+          imageUrl: data.image_url,
+          role: role as PrismaUserRole,
+          status: AccountStatus.ACTIVE,
           school: customFields.school as string,
           grade: customFields.grade as string,
           bio: customFields.bio as string,
@@ -112,18 +164,33 @@ export class AuthService {
    * Handle user.deleted webhook event
    * Deletes user from database when deleted in Clerk
    */
-  async handleUserDeleted(event: ClerkWebhookEvent) {
+  async handleUserDeleted(event: ClerkWebhookEvent, eventId: string) {
     const { data } = event;
 
+    // ✅ Check idempotency
+    const shouldProcess = await this.webhookIdempotency.shouldProcess(eventId, event.type);
+    if (!shouldProcess) {
+      this.logger.log(`Skipping duplicate user.deleted event: ${eventId}`);
+      return;
+    }
+
     try {
-      await this.prisma.user.delete({
+      // ✅ Soft delete instead of hard delete
+      await this.prisma.user.update({
         where: { clerkId: data.id },
+        data: {
+          status: AccountStatus.INACTIVE,
+          deletedAt: new Date(),
+        },
       });
 
-      this.logger.log(`✅ User deleted via webhook: ${data.id}`);
+      this.logger.log(`✅ User soft-deleted via webhook: ${data.id}`);
+
+      // ✅ Audit log
+      await this.auditService.logWebhookUserDeleted(data.id, eventId);
     } catch (error) {
       if (error.code === 'P2025') {
-        this.logger.warn(`User ${data.id} not found in database for deletion`);
+        this.logger.warn(`User ${data.id} not found for deletion`);
         return; // User already deleted or never existed
       }
       this.logger.error('Error handling user.deleted webhook:', error);
@@ -131,175 +198,93 @@ export class AuthService {
     }
   }
 
-  /**
-   * Extract role from Clerk metadata with priority:
-   * 1. privateMetadata.role (set by admins)
-   * 2. publicMetadata.role (set by user/system)
-   * 3. Default to STUDENT
-   */
-  private extractRoleFromMetadata(
-    publicMetadata: Record<string, any>,
-    privateMetadata: Record<string, any>,
-  ): UserRole {
-    // Priority 1: Private metadata (admin-set, more secure)
-    const privateRole = privateMetadata?.role;
-    if (privateRole && isValidUserRole(privateRole)) {
-      return privateRole as UserRole;
-    }
-
-    // Priority 2: Public metadata
-    const publicRole = publicMetadata?.role;
-    if (publicRole && isValidUserRole(publicRole)) {
-      return publicRole as UserRole;
-    }
-
-    // Default
-    return UserRole.STUDENT;
-  }
-
   // ============================================
   // USER PROFILE OPERATIONS
   // ============================================
 
   /**
-   * Get current user from database
-   * If not found, sync from Clerk (fallback for webhook failures)
+   * Update user profile - Clerk first, then database
    */
-  async getCurrentUser(clerkId: string) {
-    let user = await this.prisma.user.findUnique({
-      where: { clerkId },
-      select: {
-        id: true,
-        clerkId: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        imageUrl: true,
-        role: true,
-        status: true,
-        phoneNumber: true,
-        dateOfBirth: true,
-        grade: true,
-        school: true,
-        bio: true,
-        lastLoginAt: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    });
-
-    // Fallback: If user not in DB, sync from Clerk
-    if (!user) {
-      this.logger.warn(`User ${clerkId} not found in DB, syncing from Clerk...`);
-      const clerkUser = await this.clerkClient.users.getUser(clerkId);
-      user = await this.syncUserFromClerk(clerkUser);
-    }
-
-    return user;
-  }
-
-  /**
-   * Manual sync from Clerk (fallback for webhook failures)
-   */
-  private async syncUserFromClerk(clerkUser: ClerkUser) {
-    const email = clerkUser.emailAddresses[0]?.emailAddress;
-    if (!email) {
-      throw new BadRequestException('User has no email address');
-    }
-
-    const role = this.extractRoleFromMetadata(
-      clerkUser.publicMetadata as Record<string, any>,
-      clerkUser.privateMetadata as Record<string, any>,
-    );
-
-    const customFields = (clerkUser.publicMetadata as Record<string, any>) || {};
-
-    return await this.prisma.user.upsert({
-      where: { clerkId: clerkUser.id },
-      create: {
-        clerkId: clerkUser.id,
-        email,
-        firstName: clerkUser.firstName,
-        lastName: clerkUser.lastName,
-        imageUrl: clerkUser.imageUrl,
-        role: role as PrismaUserRole,
-        status: AccountStatus.ACTIVE,
-        school: customFields.school as string,
-        grade: customFields.grade as string,
-        bio: customFields.bio as string,
-        dateOfBirth: customFields.dateOfBirth ? new Date(customFields.dateOfBirth as string) : null,
-        lastLoginAt: new Date(),
-      },
-      update: {
-        email,
-        firstName: clerkUser.firstName,
-        lastName: clerkUser.lastName,
-        imageUrl: clerkUser.imageUrl,
-        role: role as PrismaUserRole,
-        lastLoginAt: new Date(),
-      },
-    });
-  }
-
-  /**
-   * Update user profile - syncs to BOTH database AND Clerk
-   */
-  async updateProfile(clerkId: string, updateProfileDto: UpdateProfileDto) {
-    // 1. Update database first
-    const user = await this.prisma.user.update({
-      where: { clerkId },
-      data: updateProfileDto,
-    });
-
-    // 2. Sync to Clerk metadata (for custom fields)
+  async updateProfile(
+    clerkId: string,
+    updateProfileDto: UpdateProfileDto,
+    userId: string,
+    requestId?: string,
+    ipAddress?: string,
+  ) {
+    // ✅ 1. Update Clerk first (source of truth)
+    const clerkUpdates: any = {};
     const metadataUpdates: Record<string, any> = {};
 
+    // Built-in Clerk fields
+    if (updateProfileDto.firstName) clerkUpdates.firstName = updateProfileDto.firstName;
+    if (updateProfileDto.lastName) clerkUpdates.lastName = updateProfileDto.lastName;
+
+    // Custom fields go to metadata
     if (updateProfileDto.school !== undefined) metadataUpdates.school = updateProfileDto.school;
     if (updateProfileDto.grade !== undefined) metadataUpdates.grade = updateProfileDto.grade;
     if (updateProfileDto.bio !== undefined) metadataUpdates.bio = updateProfileDto.bio;
     if (updateProfileDto.dateOfBirth !== undefined)
       metadataUpdates.dateOfBirth = updateProfileDto.dateOfBirth;
 
-    // 3. Update Clerk user (built-in fields + metadata)
-    const clerkUpdates: any = {};
-
-    if (updateProfileDto.firstName) clerkUpdates.firstName = updateProfileDto.firstName;
-    if (updateProfileDto.lastName) clerkUpdates.lastName = updateProfileDto.lastName;
-
-    // Update public metadata with custom fields
     if (Object.keys(metadataUpdates).length > 0) {
       clerkUpdates.publicMetadata = metadataUpdates;
     }
 
-    if (Object.keys(clerkUpdates).length > 0) {
-      await this.clerkClient.users.updateUser(clerkId, clerkUpdates);
-      this.logger.log(`✅ Synced profile update to Clerk for user: ${clerkId}`);
-    }
+    try {
+      // Update Clerk
+      if (Object.keys(clerkUpdates).length > 0) {
+        await this.clerkClient.users.updateUser(clerkId, clerkUpdates);
+        this.logger.log(`✅ Updated Clerk profile for user: ${clerkId}`);
+      }
 
-    return user;
+      // ✅ 2. Update database (mirror Clerk)
+      const user = await this.prisma.user.update({
+        where: { clerkId },
+        data: updateProfileDto,
+      });
+
+      // ✅ 3. Audit log
+      await this.auditService.logProfileUpdate(userId, updateProfileDto, requestId, ipAddress);
+
+      return user;
+    } catch (error) {
+      this.logger.error('Error updating profile:', error);
+
+      // ✅ If Clerk fails, don't update DB
+      if (error.status || error.clerkError) {
+        throw new BadRequestException('Failed to update profile in Clerk');
+      }
+
+      throw new InternalServerErrorException('Failed to update profile');
+    }
   }
 
   /**
-   * Delete user account - deletes from Clerk (webhook will delete from DB)
+   * Delete user account - Request deletion from Clerk only
+   * Webhook will handle database cleanup
    */
-  async deleteAccount(clerkId: string) {
+  async deleteAccount(
+    clerkId: string,
+    userId: string,
+    requestId?: string,
+    ipAddress?: string,
+  ) {
     try {
-      // Delete from Clerk first
+      // ✅ Only delete from Clerk
       await this.clerkClient.users.deleteUser(clerkId);
+      this.logger.log(`✅ Deletion requested from Clerk: ${clerkId}`);
 
-      this.logger.log(`✅ User deleted from Clerk: ${clerkId}`);
+      // ✅ Audit log
+      await this.auditService.logAccountDeletion(userId, clerkId, requestId, ipAddress);
 
-      // Webhook will handle DB deletion, but do it here too for immediate response
-      await this.prisma.user.delete({
-        where: { clerkId },
-      });
-
+      // ✅ Return immediately - webhook will clean up DB
       return {
-        message: 'Account deleted successfully',
+        message: 'Account deletion requested. Cleanup will complete shortly.',
       };
     } catch (error) {
-      this.logger.error('Error deleting account:', error);
-      throw new BadRequestException('Failed to delete account');
+      this.logger.error('Error requesting account deletion:', error);
+      throw new BadRequestException('Failed to request account deletion');
     }
   }
 
@@ -339,9 +324,6 @@ export class AuthService {
       }
 
       const tokenResponse = await this.clerkClient.sessions.getToken(sessionId, templateName);
-
-      // Ensure user exists in DB
-      await this.syncUserFromClerk(clerkUser);
 
       return {
         message: 'Token generated successfully',
@@ -422,10 +404,5 @@ export class AuthService {
     if (!this.isDevelopment) {
       throw new BadRequestException('This endpoint is only available in development mode');
     }
-  }
-
-  private isValidEmail(email: string): boolean {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email) && email.length <= 255;
   }
 }
