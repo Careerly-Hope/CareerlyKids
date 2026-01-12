@@ -13,7 +13,7 @@ import { UserRole as PrismaUserRole, AccountStatus } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
 import { UserRole } from '../../../common/enums/user-role.enum';
 import { ClerkWebhookEvent } from './dto/clerk-webhook.dto';
-import { WebhookIdempotencyService } from './webhook-idempotency.service';
+import { WebhookIdempotencyService } from './services/webhook-idempotency.service';
 import { AuditService } from '../audit/audit.service';
 import { extractRoleFromMetadata } from '../../../common/utils/role-metadata.util';
 
@@ -202,6 +202,51 @@ export class AuthService {
   // USER PROFILE OPERATIONS
   // ============================================
 
+ /**
+   * Update user ROLE -
+   */
+ async promoteStudentToAdmin(
+    userId: string,
+    promotedBy: string,
+    requestId?: string,
+    ipAddress?: string,
+  ) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+  
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+  
+    if (user.role !== UserRole.STUDENT) {
+      throw new BadRequestException('Only students can be promoted to admin');
+    }
+  
+    // 1️⃣ Update Clerk (source of truth)
+    await this.clerkClient.users.updateUser(user.clerkId, {
+      publicMetadata: { role: UserRole.ADMIN },
+      privateMetadata: { role: UserRole.ADMIN },
+    });
+  
+    // 2️⃣ Update DB
+    const updatedUser = await this.prisma.user.update({
+      where: { id: userId },
+      data: { role: UserRole.ADMIN },
+    });
+  
+    // 3️⃣ Audit
+    await this.auditService.logRoleChange(
+      promotedBy,          // user performing the change
+      UserRole.STUDENT,    // old role
+      UserRole.ADMIN,      // new role
+      requestId || 'unknown',
+      ipAddress || 'unknown',
+    );
+    return updatedUser;
+  }
+
+  
   /**
    * Update user profile - Clerk first, then database
    */

@@ -12,6 +12,7 @@ import {
   Req,
   BadRequestException,
   Logger,
+  Param,
 } from '@nestjs/common';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { AuthService } from './auth.service';
@@ -31,6 +32,8 @@ import { ClerkWebhookEvent } from './dto/clerk-webhook.dto';
 import { AuthenticatedUser } from 'src/common/interfaces/authenticated-user.interface';
 import { SkipThrottle } from '@nestjs/throttler';
 import { RequestContext, RequestMetadata } from 'src/common/decorators/request-metadata.decorator';
+import { Roles } from 'src/common/decorators/roles.decorator';
+import { UserRole } from 'src/common/enums/user-role.enum';
 
 @ApiTags('v2/Auth')
 @Controller('v2/auth')
@@ -41,13 +44,6 @@ export class AuthController {
     private readonly authService: AuthService,
     private readonly configService: ConfigService,
   ) {}
-
-  @Get('test-timeout')
-  @Public()
-  async testTimeout() {
-    await new Promise((resolve) => setTimeout(resolve, 60000));
-    return { ok: true };
-  }
 
   // ============================================
   // WEBHOOK ENDPOINT
@@ -70,9 +66,10 @@ export class AuthController {
       **Security:** Verified using Clerk webhook secret (svix)
     `,
   })
-  @SwaggerResponse({ status: 200, description: 'Webhook processed successfully' })
-  @SwaggerResponse({ status: 400, description: 'Invalid webhook signature' })
-  async handleWebhook(
+   @SwaggerResponse({
+    status: 200,
+    description: 'Webhook acknowledged. Invalid signatures or payloads are logged and ignored.',
+  })  async handleWebhook(
     @Headers('svix-id') svixId: string,
     @Headers('svix-timestamp') svixTimestamp: string,
     @Headers('svix-signature') svixSignature: string,
@@ -82,14 +79,14 @@ export class AuthController {
 
     if (!svixId || !svixTimestamp || !svixSignature) {
       this.logger.warn('Missing svix headers in webhook request');
-      throw new BadRequestException('Missing svix headers');
+      return { success: false, error: 'Missing signature headers' };
     }
 
     // Verify webhook signature
     const webhookSecret = this.configService.get('CLERK_WEBHOOK_SECRET');
     if (!webhookSecret) {
       this.logger.error('Webhook secret not configured');
-      throw new BadRequestException('Webhook secret not configured');
+      return { success: false, error: 'Webhook not configured' };
     }
 
     const wh = new Webhook(webhookSecret);
@@ -102,9 +99,18 @@ export class AuthController {
         'svix-signature': svixSignature,
       }) as ClerkWebhookEvent;
     } catch (error) {
-      this.logger.error('Invalid webhook signature', error);
-      throw new BadRequestException('Invalid webhook signature');
+      this.logger.error('Invalid webhook signature', {
+        svixId,
+        message: error.message,
+      });
+    
+      // IMPORTANT: acknowledge receipt to stop retries
+      return {
+        success: false,
+        error: 'Invalid signature',
+      };
     }
+    
 
     // ✅ Extract event ID for idempotency
     const eventId = svixId; // Svix ID is unique per event
@@ -157,9 +163,33 @@ export class AuthController {
   @SwaggerResponse({ status: 200, description: 'Returns user profile.' })
   @SwaggerResponse({ status: 401, description: 'Unauthorized.' })
   @SwaggerResponse({ status: 404, description: 'User not found.' })
-  async getProfile(@CurrentUser() user: AuthenticatedUser) {
-    return ApiResponse.success(user.dbUser, 'User profile retrieved');
+  async getProfile(@CurrentUser() user: AuthenticatedUser['dbUser']) {
+    return ApiResponse.success(user, 'User profile retrieved');
   }
+
+
+
+  @Patch('users/:userId/promote')
+  @Roles(UserRole.STUDENT, UserRole.SUPER_ADMIN)
+  @ApiBearerAuth('bearer')
+  @ApiOperation({
+    summary: 'Promote student to admin',
+  })
+  async promoteStudentToAdmin(
+    @Param('userId') userId: string,
+    @CurrentUser() admin: AuthenticatedUser['dbUser'],
+    @RequestContext() context: RequestMetadata,
+  ) {
+    const user = await this.authService.promoteStudentToAdmin(
+      userId,
+      admin.id,
+      context.requestId,
+      context.ipAddress,
+    );
+  
+    return ApiResponse.success(user, 'User promoted to admin');
+  }
+  
 
   @Patch('profile')
   @ApiBearerAuth('bearer')
@@ -181,15 +211,15 @@ export class AuthController {
     // - user.clerkId = Clerk's ID (stored in DB, used for Clerk API calls)
     // - user.id = Database UUID (used for foreign keys)
     // - context = Request metadata (created once by middleware)
-    
+
     const updated = await this.authService.updateProfile(
-      user.clerkId,        // ✅ Clerk ID from database
+      user.clerkId, // ✅ Clerk ID from database
       dto,
-      user.id,             // ✅ Database UUID
-      context.requestId,   // ✅ From middleware (single source of truth)
-      context.ipAddress,   // ✅ From Express with trust proxy
+      user.id, // ✅ Database UUID
+      context.requestId, // ✅ From middleware (single source of truth)
+      context.ipAddress, // ✅ From Express with trust proxy
     );
-    
+
     return ApiResponse.success(updated, 'Profile updated successfully');
   }
 
@@ -205,12 +235,12 @@ export class AuthController {
     @RequestContext() context: RequestMetadata,
   ) {
     const result = await this.authService.deleteAccount(
-      user.clerkId,       
-      user.id,            
-      context.requestId,  
-      context.ipAddress,  
+      user.clerkId,
+      user.id,
+      context.requestId,
+      context.ipAddress,
     );
-    
+
     return ApiResponse.success(result, 'Account deleted successfully');
   }
 
