@@ -23,11 +23,9 @@ export class UsersService {
   /**
    * Get test history
    */
-  async getTestHistory(clerkId: string) {
-    const user = await this.getUserByClerkId(clerkId);
-
-    return await this.prisma.userTestSession.findMany({
-      where: { userId: user.id },
+  async getTestHistory(userId: string) {
+    return this.prisma.userTestSession.findMany({
+      where: { userId },
       include: {
         session: {
           include: {

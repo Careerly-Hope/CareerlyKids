@@ -17,7 +17,7 @@ export class UpdateProfileDto {
   @IsString()
   phoneNumber?: string;
 
-  @ApiPropertyOptional({ example: '2008-04-12' })
+  @ApiPropertyOptional({ example: '2008-04-12T00:00:00.000Z' })
   @IsOptional()
   @IsDateString()
   dateOfBirth?: string;

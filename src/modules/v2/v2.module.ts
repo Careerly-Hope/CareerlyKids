@@ -7,10 +7,12 @@ import { AssessmentsModule } from './testAssessments/assessments.module';
 import { AccessTokensModule } from './tokens/access-token.module';
 import { PaymentsModule } from './payments/payment.module';
 import { TokenPurchaseModule } from './token-purchase/token-purchase.module';
+import { AuditModule } from './audit/audit.module';
 
 @Module({
   imports: [
     AuthModule,
+    AuditModule,
     AccessTokensModule,
     AssessmentsModule,
     PaymentsModule,
@@ -18,6 +20,6 @@ import { TokenPurchaseModule } from './token-purchase/token-purchase.module';
     PrismaModule,
     UsersModule,
   ],
-  exports: [AuthModule, UsersModule],
+  exports: [AuthModule, UsersModule, AuditModule],
 })
 export class V2Module {}

@@ -8,17 +8,16 @@ import helmet from 'helmet';
 import 'dotenv/config';
 import { V2Module } from './modules/v2/v2.module';
 import { TimeoutInterceptor } from './common/interceptor/timeout.interceptor';
+import { NestExpressApplication } from '@nestjs/platform-express';
 
 async function bootstrap() {
   validateCorsConfig();
-  
+
   const nodeEnv = process.env.NODE_ENV || 'development';
   const isProduction = nodeEnv === 'production';
 
-  const app = await NestFactory.create(AppModule, {
-    logger: isProduction 
-      ? ['error', 'warn', 'log'] 
-      : ['error', 'warn', 'log', 'debug'],
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    logger: isProduction ? ['error', 'warn', 'log'] : ['error', 'warn', 'log', 'debug'],
   });
 
   // Security headers
@@ -46,6 +45,8 @@ async function bootstrap() {
 
   // Global timeout interceptor (30s default)
   app.useGlobalInterceptors(new TimeoutInterceptor(30000));
+
+  app.set('trust proxy', true);
 
   // Global validation pipe
   app.useGlobalPipes(
@@ -130,7 +131,8 @@ async function bootstrap() {
     
     📩 **Support:** support@careerlykids.com
     `,
-    )    .setVersion('2.0')
+    )
+    .setVersion('2.0')
     .addBearerAuth(
       {
         type: 'http',

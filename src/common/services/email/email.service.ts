@@ -218,10 +218,6 @@ export class EmailService {
       streamRecommendation,
     } = params;
 
-    // const institutionText = school
-    //   ? `<p style="color:#666; margin-bottom: 20px;">Assessment completed through <strong>${school}</strong></p>`
-    //   : '';
-
     // Generate RIASEC scores bars
     const riasecLabels = {
       R: 'Realistic',

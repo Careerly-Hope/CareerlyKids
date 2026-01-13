@@ -23,7 +23,7 @@ import {
   SuperAdminOnly,
 } from '../../../common/decorators/roles.decorator';
 import { Public } from '../../../common/decorators/public.decorator';
-import { RolesGuard } from '../auth/roles.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
 import { PurchaseBulkTokenDto } from './dto/purchase-bulk.dto';
 import { BulkQuoteDto } from './dto/bulk-quote.dto';
 import { PurchaseIndividualTokenDto } from './dto/purchase-indivdual.dto';
@@ -61,7 +61,6 @@ export class TokenPurchaseController {
   // ===================================================================
 
   @Post('bulk/quote')
-  @UseGuards(RolesGuard)
   @AdminOnly()
   @ApiBearerAuth('bearer')
   @HttpCode(HttpStatus.OK)
@@ -91,7 +90,6 @@ export class TokenPurchaseController {
   // ===================================================================
 
   @Get('verify/:reference')
-  @UseGuards(RolesGuard)
   @Public()
   @ApiBearerAuth('bearer')
   @ApiOperation({
@@ -137,8 +135,7 @@ export class TokenPurchaseController {
   // ADMIN: RETRY TOKEN GENERATION
   // ===================================================================
 
-  @Post('admin/retry/:paymentId')
-  @UseGuards(RolesGuard)
+  @Post('superAdmin/retry/:paymentId')
   @SuperAdminOnly()
   @ApiBearerAuth('bearer')
   @HttpCode(HttpStatus.OK)

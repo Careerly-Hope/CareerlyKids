@@ -38,6 +38,7 @@
     "@nestjs/event-emitter": "^3.0.1",
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^10.0.0",
+    "@nestjs/schedule": "^6.1.0",
     "@nestjs/swagger": "^7.1.13",
     "@nestjs/terminus": "^10.1.3",
     "@nestjs/throttler": "^6.5.0",
