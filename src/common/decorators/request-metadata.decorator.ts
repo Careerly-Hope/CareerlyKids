@@ -6,23 +6,19 @@ import { Request } from 'express';
  * Extracts request ID from headers
  * Middleware guarantees this exists
  */
-export const RequestId = createParamDecorator(
-  (data: unknown, ctx: ExecutionContext): string => {
-    const req = ctx.switchToHttp().getRequest<Request>();
-    return req.headers['x-request-id'] as string;
-  },
-);
+export const RequestId = createParamDecorator((data: unknown, ctx: ExecutionContext): string => {
+  const req = ctx.switchToHttp().getRequest<Request>();
+  return req.headers['x-request-id'] as string;
+});
 
 /**
  * Extracts client IP address
  * Requires app.set('trust proxy', true) in main.ts
  */
-export const ClientIp = createParamDecorator(
-  (data: unknown, ctx: ExecutionContext): string => {
-    const req = ctx.switchToHttp().getRequest<Request>();
-    return req.ip || 'unknown';
-  },
-);
+export const ClientIp = createParamDecorator((data: unknown, ctx: ExecutionContext): string => {
+  const req = ctx.switchToHttp().getRequest<Request>();
+  return req.ip || 'unknown';
+});
 
 /**
  * Combined request metadata

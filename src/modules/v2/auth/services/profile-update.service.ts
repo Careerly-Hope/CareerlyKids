@@ -52,14 +52,14 @@ const PROFILE_FIELD_MAP = {
 
 /**
  * 📝 Profile Update Service (FINAL VERSION)
- * 
+ *
  * CRITICAL FIX: Merges with existing Clerk metadata to prevent data loss
- * 
+ *
  * Truth Model:
  * - Clerk is the source of truth for auth & profile metadata
  * - Database mirrors Clerk for relational queries
  * - Updates flow: Clerk → DB (with rollback on DB failure)
- * 
+ *
  * Flow: Normalize → Fetch Both States → Merge → Update Clerk → Update DB → Audit
  */
 @Injectable()
@@ -186,7 +186,7 @@ export class ProfileUpdateService {
               error: error.message,
             },
           );
-          
+
           // TODO: Send to dead letter queue or alerting system
           // await this.alertingService.sendCriticalAlert('profile_sync_failure', {...});
         }
@@ -229,9 +229,7 @@ export class ProfileUpdateService {
     if (dto.dateOfBirth !== undefined) {
       const date = new Date(dto.dateOfBirth);
       if (isNaN(date.getTime())) {
-        throw new BadRequestException(
-          'Invalid dateOfBirth format. Expected ISO 8601 date string',
-        );
+        throw new BadRequestException('Invalid dateOfBirth format. Expected ISO 8601 date string');
       }
       normalized.dateOfBirth = date;
     }
@@ -241,7 +239,7 @@ export class ProfileUpdateService {
 
   /**
    * Prepare Clerk updates with metadata merging
-   * 
+   *
    * CRITICAL: Merges with existing metadata to prevent data loss
    */
   private prepareClerkUpdates(
@@ -252,7 +250,7 @@ export class ProfileUpdateService {
     hasClerkChanges: boolean;
   } {
     const clerkUpdates: ClerkUpdateFields = {};
-    
+
     // START WITH EXISTING METADATA (preserve all fields)
     const metadataUpdates: Record<string, any> = { ...existingMetadata };
 
@@ -317,9 +315,6 @@ export class ProfileUpdateService {
     };
   }
 
-
-
-
   private async attemptClerkRollback(
     clerkId: string,
     attemptedChanges: NormalizedProfileUpdate,
@@ -327,13 +322,13 @@ export class ProfileUpdateService {
   ): Promise<boolean> {
     const MAX_RETRIES = 3;
     let attempt = 0;
-  
+
     while (attempt < MAX_RETRIES) {
       try {
         attempt++;
-  
+
         const rollbackUpdates: ClerkUpdateFields = {};
-        
+
         // Rollback built-in fields from top-level Clerk user properties
         if (attemptedChanges.firstName !== undefined) {
           rollbackUpdates.firstName = clerkUserBeforeUpdate.firstName ?? undefined;
@@ -341,37 +336,37 @@ export class ProfileUpdateService {
         if (attemptedChanges.lastName !== undefined) {
           rollbackUpdates.lastName = clerkUserBeforeUpdate.lastName ?? undefined;
         }
-  
+
         // Rollback metadata fields from publicMetadata
         const metadataChanged = PROFILE_FIELD_MAP.clerkMetadata.some(
           (field) => attemptedChanges[field] !== undefined,
         );
-  
+
         if (metadataChanged) {
           // Use pre-update publicMetadata as rollback base
           rollbackUpdates.publicMetadata = {
             ...(clerkUserBeforeUpdate.publicMetadata as Record<string, any>),
           };
         }
-  
+
         // Execute rollback
         if (Object.keys(rollbackUpdates).length > 0) {
           await this.clerkClient.users.updateUser(clerkId, rollbackUpdates);
           this.logger.warn(`✅ Clerk rollback successful for user ${clerkId} (attempt ${attempt})`);
           return true;
         }
-  
+
         return true; // Nothing to rollback
       } catch (rollbackError) {
         this.logger.error(
           `❌ Clerk rollback attempt ${attempt}/${MAX_RETRIES} failed for user ${clerkId}`,
           rollbackError,
         );
-  
+
         if (attempt >= MAX_RETRIES) {
           return false;
         }
-  
+
         // Exponential backoff: 100ms, 200ms, 400ms
         await new Promise((resolve) => setTimeout(resolve, 100 * Math.pow(2, attempt - 1)));
       }

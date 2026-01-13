@@ -2,7 +2,6 @@ import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
-import { EventEmitterModule } from '@nestjs/event-emitter';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
@@ -23,13 +22,12 @@ import { ScheduleModule } from '@nestjs/schedule';
       isGlobal: true,
       envFilePath: '.env',
     }),
-    ScheduleModule.forRoot(), 
+    ScheduleModule.forRoot(),
 
     ThrottlerModule.forRoot(getRateLimitConfig()),
     PrismaModule,
     HealthModule,
     V2Module,
-
   ],
   controllers: [AppController],
   providers: [
@@ -52,8 +50,6 @@ import { ScheduleModule } from '@nestjs/schedule';
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     // ✅ Apply to ALL routes
-    consumer
-      .apply(RequestContextMiddleware)
-      .forRoutes('*');
+    consumer.apply(RequestContextMiddleware).forRoutes('*');
   }
 }

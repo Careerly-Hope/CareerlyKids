@@ -3,7 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { createClerkClient } from '@clerk/backend';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
-import { ClerkStrategy } from './clerk.strategy'; 
+import { ClerkStrategy } from './clerk.strategy';
 import { WebhookHandlerService } from './services/webhook-handler.service';
 import { ProfileUpdateService } from './services/profile-update.service';
 import { AccountDeletionService } from './services/account-deletion.service';
@@ -19,20 +19,20 @@ import { WebhookIdempotencyService } from './services/webhook-idempotency.servic
   providers: [
     // Main orchestrator
     AuthService,
-    
+
     // ✅ ADD CLERK STRATEGY HERE
     ClerkStrategy,
-    
+
     // Specialized services
     WebhookHandlerService,
     ProfileUpdateService,
     AccountDeletionService,
     DevUtilitiesService,
     ProfileReconciliationService,
-    
+
     // Supporting services
     WebhookIdempotencyService,
-    
+
     // Clerk client
     {
       provide: 'ClerkClient',

@@ -4,7 +4,7 @@ import { AuditService } from '../../audit/audit.service';
 
 /**
  * 🗑️ Account Deletion Service
- * 
+ *
  * Handles account deletion through Clerk.
  * Database cleanup happens automatically via webhook.
  */

@@ -594,8 +594,15 @@ export class AssessmentsService {
     };
   }
 
+  // assessments.service.ts
 
-  async getTokenUsageReportDetailed(tokenString: string) {
+  async getTokenUsageReportDetailed(
+    tokenString: string,
+    page: number = 1,
+    limit: number = 10,
+    baseUrl: string = '', // For generating pagination links
+  ) {
+    // Fetch token with usage records
     const token = await this.prisma.accessToken.findUnique({
       where: { token: tokenString },
       include: {
@@ -615,17 +622,26 @@ export class AssessmentsService {
         },
       },
     });
-  
+
     if (!token) {
       throw new NotFoundException('Token not found');
     }
-  
-    // Fetch full test results for each session
-    const sessionTokens = token.usageRecords.map(u => u.sessionToken);
-    
+
+    // ✅ Calculate pagination
+    const totalStudents = token.usageRecords.length;
+    const totalPages = Math.ceil(totalStudents / limit);
+    const skip = (page - 1) * limit;
+    const take = limit;
+
+    // ✅ Paginate usage records
+    const paginatedUsageRecords = token.usageRecords.slice(skip, skip + take);
+
+    // Fetch test results for paginated students only
+    const sessionTokens = paginatedUsageRecords.map((u) => u.sessionToken);
+
     const testResults = await this.prisma.testResult.findMany({
       where: {
-        sessionToken: { in: sessionTokens }
+        sessionToken: { in: sessionTokens },
       },
       select: {
         id: true,
@@ -643,69 +659,52 @@ export class AssessmentsService {
         completionTime: true,
       },
     });
-  
+
     // Create a map for quick lookup
-    const resultsMap = new Map(
-      testResults.map(r => [r.sessionToken, r])
-    );
-  
-    // Combine usage records with full test results
-    const studentsWithResults = token.usageRecords.map(usage => {
+    const resultsMap = new Map(testResults.map((r) => [r.sessionToken, r]));
+
+    // Build student data with results (paginated)
+    const studentsWithResults = paginatedUsageRecords.map((usage) => {
       const result = resultsMap.get(usage.sessionToken);
-      
+
       if (!result) {
-        // This shouldn't happen, but handle gracefully
         return {
-          // Student info
           name: `${usage.firstName} ${usage.lastName}`,
           firstName: usage.firstName,
           lastName: usage.lastName,
           class: usage.class,
           parentEmail: usage.parentEmail,
-          
-          // Access info
           sessionToken: usage.sessionToken,
           unlockedAt: usage.unlockedAt,
           lastViewedAt: usage.lastViewedAt,
           viewCount: usage.viewCount,
-          
-          // Result info (null if not found)
           result: null,
           error: 'Test result not found',
         };
       }
-  
+
       const matches = result.matchedCareers as any[];
       const aiRecommendation = result.aiRecommendation as any;
-  
+
       return {
-        // Student info
         name: `${usage.firstName} ${usage.lastName}`,
         firstName: usage.firstName,
         lastName: usage.lastName,
         class: usage.class,
         parentEmail: usage.parentEmail,
-        
-        // Access info
         sessionToken: usage.sessionToken,
         unlockedAt: usage.unlockedAt,
         lastViewedAt: usage.lastViewedAt,
         viewCount: usage.viewCount,
-        
-        // Complete test results
         result: {
           resultId: result.id,
           submittedAt: result.timestamp.toISOString(),
           completionTime: result.completionTime,
-          
-          // RIASEC scores
           careerCode: result.careerCode,
           scores: result.scores as Record<string, number>,
           totalScore: result.totalScore,
           tier: result.tier,
-          
-          // Career matches (top 10)
-          matches: matches.map(m => ({
+          matches: matches.map((m) => ({
             careerName: m.careerName,
             description: m.description,
             matchScore: m.matchScore,
@@ -713,8 +712,6 @@ export class AssessmentsService {
             tags: m.tags || [],
             jobZone: m.jobZone || 3,
           })),
-          
-          // AI recommendation
           streamRecommendation: {
             recommendedStream: aiRecommendation?.recommendedStream || 'N/A',
             reasoning: aiRecommendation?.reasoning || 'No reasoning available',
@@ -725,65 +722,108 @@ export class AssessmentsService {
             },
             confidence: aiRecommendation?.confidence || 'N/A',
           },
-          
-          // Feedback (if submitted)
-          feedback: result.userFeedback ? {
-            rating: result.feedbackRating,
-            comment: result.userFeedback,
-            submittedAt: result.feedbackSubmittedAt?.toISOString() || null,
-          } : null,
+          feedback: result.userFeedback
+            ? {
+                rating: result.feedbackRating,
+                comment: result.userFeedback,
+                submittedAt: result.feedbackSubmittedAt?.toISOString() || null,
+              }
+            : null,
         },
       };
     });
-  
-    // Calculate summary statistics
+
+    // ✅ Calculate aggregate analytics (from ALL results, not just paginated)
+    const allTestResults = await this.prisma.testResult.findMany({
+      where: {
+        sessionToken: { in: token.usageRecords.map((u) => u.sessionToken) },
+      },
+      select: {
+        careerCode: true,
+        scores: true,
+        tier: true,
+        matchedCareers: true,
+        userFeedback: true,
+        feedbackRating: true,
+      },
+    });
+
     const totalViews = token.usageRecords.reduce((sum, u) => sum + u.viewCount, 0);
-    const averageViewsPerStudent = token.usageRecords.length > 0 
-      ? Math.round((totalViews / token.usageRecords.length) * 10) / 10 
-      : 0;
-  
-    // Calculate career code distribution
-    const careerCodeDistribution = testResults.reduce((acc, r) => {
-      const code = r.careerCode;
-      acc[code] = (acc[code] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-  
-    // Calculate tier distribution
-    const tierDistribution = testResults.reduce((acc, r) => {
-      const tier = r.tier || 'Unknown';
-      acc[tier] = (acc[tier] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-  
-    // Calculate average scores across all students
-    const avgScores = testResults.reduce((acc, r) => {
-      const scores = r.scores as Record<string, number>;
-      Object.entries(scores).forEach(([key, value]) => {
-        if (!acc[key]) acc[key] = [];
-        acc[key].push(value);
-      });
-      return acc;
-    }, {} as Record<string, number[]>);
-  
-    const averageScores = Object.entries(avgScores).reduce((acc, [key, values]) => {
-      acc[key] = Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 10) / 10;
-      return acc;
-    }, {} as Record<string, number>);
-  
-    // Count students with feedback
-    const studentsWithFeedback = testResults.filter(r => r.userFeedback).length;
-    const averageRating = testResults.filter(r => r.feedbackRating).length > 0
-      ? Math.round(
-          (testResults
-            .filter(r => r.feedbackRating)
-            .reduce((sum, r) => sum + (r.feedbackRating || 0), 0) / 
-           testResults.filter(r => r.feedbackRating).length) * 10
-        ) / 10
-      : null;
-  
+    const averageViewsPerStudent =
+      token.usageRecords.length > 0
+        ? Math.round((totalViews / token.usageRecords.length) * 10) / 10
+        : 0;
+
+    const careerCodeDistribution = allTestResults.reduce(
+      (acc, r) => {
+        const code = r.careerCode;
+        acc[code] = (acc[code] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
+
+    const tierDistribution = allTestResults.reduce(
+      (acc, r) => {
+        const tier = r.tier || 'Unknown';
+        acc[tier] = (acc[tier] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
+
+    const avgScores = allTestResults.reduce(
+      (acc, r) => {
+        const scores = r.scores as Record<string, number>;
+        Object.entries(scores).forEach(([key, value]) => {
+          if (!acc[key]) acc[key] = [];
+          acc[key].push(value);
+        });
+        return acc;
+      },
+      {} as Record<string, number[]>,
+    );
+
+    const averageScores = Object.entries(avgScores).reduce(
+      (acc, [key, values]) => {
+        acc[key] = Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 10) / 10;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
+
+    const studentsWithFeedback = allTestResults.filter((r) => r.userFeedback).length;
+    const averageRating =
+      allTestResults.filter((r) => r.feedbackRating).length > 0
+        ? Math.round(
+            (allTestResults
+              .filter((r) => r.feedbackRating)
+              .reduce((sum, r) => sum + (r.feedbackRating || 0), 0) /
+              allTestResults.filter((r) => r.feedbackRating).length) *
+              10,
+          ) / 10
+        : null;
+
+    // ✅ Build pagination metadata
+    const paginationMeta = {
+      page,
+      limit,
+      total: totalStudents,
+      totalPages,
+    };
+
+    // ✅ Build pagination links
+    const buildUrl = (p: number) => `${baseUrl}?page=${p}&limit=${limit}`;
+
+    const paginationLinks = {
+      self: buildUrl(page),
+      first: buildUrl(1),
+      last: buildUrl(totalPages),
+      ...(page < totalPages && { next: buildUrl(page + 1) }),
+      ...(page > 1 && { prev: buildUrl(page - 1) }),
+    };
+
     return {
-      // Token information
       tokenInfo: {
         token: token.token,
         school: token.school,
@@ -793,20 +833,16 @@ export class AssessmentsService {
         expiresAt: token.expiresAt,
         firstUsedAt: token.firstUsedAt,
       },
-  
-      // Usage statistics
       usageStats: {
         usageCount: token.usageCount,
         maxUsage: token.maxUsage,
         remainingUsage: token.maxUsage - token.usageCount,
-        totalStudents: token.usageRecords.length,
+        totalStudents: totalStudents,
         totalViews: totalViews,
         averageViewsPerStudent: averageViewsPerStudent,
         studentsWithFeedback: studentsWithFeedback,
         averageFeedbackRating: averageRating,
       },
-  
-      // Aggregate analytics
       analytics: {
         careerCodeDistribution: Object.entries(careerCodeDistribution)
           .sort((a, b) => b[1] - a[1])
@@ -815,35 +851,33 @@ export class AssessmentsService {
           .sort((a, b) => b[1] - a[1])
           .map(([tier, count]) => ({ tier, count })),
         averageScores: averageScores,
-        topCareerMatches: this.getTopCareerMatches(testResults),
+        topCareerMatches: this.getTopCareerMatches(allTestResults),
       },
-  
-      // Complete student data with full results
       students: studentsWithResults,
+      pagination: paginationMeta,
+      links: paginationLinks,
     };
   }
-  
   /**
    * Helper: Get most frequently matched careers across all students
    */
   private getTopCareerMatches(testResults: any[]): Array<{ careerName: string; count: number }> {
     const careerCounts = new Map<string, number>();
-  
-    testResults.forEach(result => {
+
+    testResults.forEach((result) => {
       const matches = result.matchedCareers as any[];
       // Count top 3 matches for each student
-      matches.slice(0, 3).forEach(match => {
+      matches.slice(0, 3).forEach((match) => {
         const current = careerCounts.get(match.careerName) || 0;
         careerCounts.set(match.careerName, current + 1);
       });
     });
-  
+
     return Array.from(careerCounts.entries())
       .map(([careerName, count]) => ({ careerName, count }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 10);
   }
-  
 
   async adminSendResultsBySession(dto: AdminSendResultsDto) {
     this.logger.log(

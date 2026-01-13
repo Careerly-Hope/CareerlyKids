@@ -1,5 +1,4 @@
 import { Controller, Get } from '@nestjs/common';
-import { User } from '@clerk/backend';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { UsersService } from './users.service';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
@@ -21,10 +20,7 @@ export class UsersController {
     description: 'All Authenticated - Returns test history for the current user',
   })
   @ApiResponse({ status: 200, description: 'Returns test history for the user.' })
-  async getTestHistory(
-    @CurrentUser() user: AuthenticatedUser['dbUser'],
-  ) {
+  async getTestHistory(@CurrentUser() user: AuthenticatedUser['dbUser']) {
     return this.usersService.getTestHistory(user.id);
   }
-  
 }

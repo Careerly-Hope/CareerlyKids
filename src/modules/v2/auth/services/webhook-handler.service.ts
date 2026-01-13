@@ -8,7 +8,7 @@ import { extractRoleFromMetadata } from '../../../../common/utils/role-metadata.
 
 /**
  * 🔔 Webhook Handler Service
- * 
+ *
  * Handles all Clerk webhook events:
  * - user.created: Create user in database
  * - user.updated: Sync user updates to database

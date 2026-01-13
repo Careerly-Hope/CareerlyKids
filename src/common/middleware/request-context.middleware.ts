@@ -5,12 +5,12 @@ import { randomUUID } from 'crypto';
 
 /**
  * Request Context Middleware
- * 
+ *
  * Responsibilities:
  * 1. Ensures every request has a unique request ID
  * 2. Creates metadata ONCE per request (single source of truth)
  * 3. Attaches to request object for downstream consumption
- * 
+ *
  * This runs BEFORE any controller or guard logic.
  */
 @Injectable()

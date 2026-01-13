@@ -20,6 +20,6 @@ import { AuditModule } from './audit/audit.module';
     PrismaModule,
     UsersModule,
   ],
-  exports: [AuthModule, UsersModule,AuditModule],
+  exports: [AuthModule, UsersModule, AuditModule],
 })
 export class V2Module {}

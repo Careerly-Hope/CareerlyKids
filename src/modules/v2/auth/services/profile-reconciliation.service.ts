@@ -16,9 +16,9 @@ import {
 
 /**
  * 🔄 Profile Reconciliation Service (PRODUCTION-READY)
- * 
+ *
  * Handles data consistency between Clerk and Database.
- * 
+ *
  * CRITICAL FIXES:
  * ✅ NULL vs UNDEFINED normalization (no more data loss)
  * ✅ Proper error counting (accurate metrics)
@@ -28,7 +28,7 @@ import {
  * ✅ Race condition prevention (skips recent updates)
  * ✅ Test user filtering (no log spam)
  * ✅ Type safety (no more 'any')
- * 
+ *
  * Triggers:
  * - Daily at 3 AM UTC (automatic)
  * - Manual endpoint (SUPER_ADMIN only)
@@ -275,9 +275,7 @@ export class ProfileReconciliationService {
         this.logger.debug(
           `Processed ${checked} users (${fixed} fixed, ${errors} errors, ${skipped} skipped)...`,
         );
-        await new Promise((resolve) =>
-          setTimeout(resolve, RECONCILIATION_CONFIG.BATCH_DELAY_MS),
-        );
+        await new Promise((resolve) => setTimeout(resolve, RECONCILIATION_CONFIG.BATCH_DELAY_MS));
       }
     }
 
@@ -340,9 +338,7 @@ export class ProfileReconciliationService {
       offset += BATCH_SIZE;
 
       if (hasMore) {
-        await new Promise((resolve) =>
-          setTimeout(resolve, RECONCILIATION_CONFIG.BATCH_DELAY_MS),
-        );
+        await new Promise((resolve) => setTimeout(resolve, RECONCILIATION_CONFIG.BATCH_DELAY_MS));
       }
     }
 
@@ -411,9 +407,7 @@ export class ProfileReconciliationService {
     }
 
     // Skip users updated in last 5 minutes (race condition prevention)
-    const skipRecent = new Date(
-      Date.now() - RECONCILIATION_CONFIG.SKIP_RECENT_UPDATES_MS,
-    );
+    const skipRecent = new Date(Date.now() - RECONCILIATION_CONFIG.SKIP_RECENT_UPDATES_MS);
     baseFilter.updatedAt = { ...baseFilter.updatedAt, lt: skipRecent };
 
     return baseFilter;
@@ -457,9 +451,7 @@ export class ProfileReconciliationService {
     const clerkBio = normalizeValue(metadata.bio);
     const dbBio = normalizeValue(dbUser.bio);
     if (clerkBio !== dbBio) {
-      drift.push(
-        `bio: "${dbBio?.substring(0, 30)}..." → "${clerkBio?.substring(0, 30)}..."`,
-      );
+      drift.push(`bio: "${dbBio?.substring(0, 30)}..." → "${clerkBio?.substring(0, 30)}..."`);
     }
 
     // Date comparison

@@ -34,7 +34,7 @@ export class PaymentsController {
   // ===================================================================
 
   @Get('superAdmin/statistics')
-  @SuperAdminOnly() 
+  @SuperAdminOnly()
   @ApiOperation({ summary: 'Get payment statistics' })
   async getPaymentStatistics() {
     return this.paymentsService.getPaymentStatistics();

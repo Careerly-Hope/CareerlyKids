@@ -259,8 +259,7 @@ export class AuthController {
   @ApiBearerAuth('bearer')
   @ApiOperation({
     summary: '🔄 Get reconciliation statistics',
-    description:
-      'View reconciliation health, last runs, and drift trends (SUPER_ADMIN only)',
+    description: 'View reconciliation health, last runs, and drift trends (SUPER_ADMIN only)',
   })
   @SwaggerResponse({
     status: 200,
@@ -282,8 +281,7 @@ export class AuthController {
   @ApiBearerAuth('bearer')
   @ApiOperation({
     summary: '🔄 Reconcile single user',
-    description:
-      'Manually reconcile a specific user between Clerk and database (SUPER_ADMIN only)',
+    description: 'Manually reconcile a specific user between Clerk and database (SUPER_ADMIN only)',
   })
   @SwaggerResponse({
     status: 200,
@@ -292,9 +290,7 @@ export class AuthController {
   })
   @SwaggerResponse({ status: 400, description: 'Invalid clerk ID' })
   @SwaggerResponse({ status: 403, description: 'Insufficient permissions (SUPER_ADMIN only)' })
-  async reconcileUser(
-    @Param('clerkId') clerkId: string,
-  ): Promise<ReconcileUserResponseDto> {
+  async reconcileUser(@Param('clerkId') clerkId: string): Promise<ReconcileUserResponseDto> {
     if (!clerkId || clerkId.trim().length === 0) {
       throw new BadRequestException('Invalid clerkId');
     }

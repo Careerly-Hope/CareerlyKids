@@ -36,4 +36,4 @@ export class UsersService {
       orderBy: { createdAt: 'desc' },
     });
   }
-}  
+}

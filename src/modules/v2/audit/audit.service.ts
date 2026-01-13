@@ -95,11 +95,7 @@ export class AuditService {
   /**
    * Log webhook-driven user creation
    */
-  async logWebhookUserCreated(
-    userId: string,
-    clerkId: string,
-    eventId: string,
-  ): Promise<void> {
+  async logWebhookUserCreated(userId: string, clerkId: string, eventId: string): Promise<void> {
     await this.log({
       userId,
       action: 'USER_CREATED_VIA_WEBHOOK',

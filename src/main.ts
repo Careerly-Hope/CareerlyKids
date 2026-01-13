@@ -12,14 +12,12 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 
 async function bootstrap() {
   validateCorsConfig();
-  
+
   const nodeEnv = process.env.NODE_ENV || 'development';
   const isProduction = nodeEnv === 'production';
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
-    logger: isProduction 
-      ? ['error', 'warn', 'log'] 
-      : ['error', 'warn', 'log', 'debug'],
+    logger: isProduction ? ['error', 'warn', 'log'] : ['error', 'warn', 'log', 'debug'],
   });
 
   // Security headers
@@ -49,7 +47,6 @@ async function bootstrap() {
   app.useGlobalInterceptors(new TimeoutInterceptor(30000));
 
   app.set('trust proxy', true);
-
 
   // Global validation pipe
   app.useGlobalPipes(
@@ -134,7 +131,8 @@ async function bootstrap() {
     
     📩 **Support:** support@careerlykids.com
     `,
-    )    .setVersion('2.0')
+    )
+    .setVersion('2.0')
     .addBearerAuth(
       {
         type: 'http',

@@ -218,7 +218,6 @@ export class EmailService {
       streamRecommendation,
     } = params;
 
-     
     // Generate RIASEC scores bars
     const riasecLabels = {
       R: 'Realistic',

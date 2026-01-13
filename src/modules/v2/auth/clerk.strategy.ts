@@ -1,4 +1,4 @@
-import { User as ClerkUser, verifyToken, ClerkClient } from '@clerk/backend';
+import { verifyToken, ClerkClient } from '@clerk/backend';
 import {
   Injectable,
   UnauthorizedException,
@@ -27,9 +27,7 @@ export class ClerkStrategy extends PassportStrategy(Strategy, 'clerk') {
 
     const clerkSecret = this.configService.get('CLERK_SECRET_KEY');
     if (!clerkSecret || clerkSecret.length < 20) {
-      throw new InternalServerErrorException(
-        'CLERK_SECRET_KEY not properly configured',
-      );
+      throw new InternalServerErrorException('CLERK_SECRET_KEY not properly configured');
     }
     this.logger.log('✅ Clerk authentication initialized');
   }

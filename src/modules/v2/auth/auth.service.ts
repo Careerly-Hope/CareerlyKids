@@ -1,10 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  Logger,
-  BadRequestException,
-  Inject,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, Logger, BadRequestException, Inject } from '@nestjs/common';
 import { ClerkClient } from '@clerk/backend';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
@@ -22,14 +16,14 @@ import { ProfileReconciliationService } from './services/profile-reconciliation.
 
 /**
  * 🎯 Auth Service (Orchestrator)
- * 
+ *
  * This service acts as a thin orchestration layer that delegates to specialized services:
  * - WebhookHandlerService: Handles all Clerk webhook events
  * - ProfileUpdateService: Handles profile updates with metadata merging
  * - AccountDeletionService: Handles account deletion
  * - DevUtilitiesService: Development utilities (token generation, super admin)
  * - ProfileReconciliationService: Periodic reconciliation between Clerk and DB
- * 
+ *
  * Business logic lives in specialized services, not here.
  */
 @Injectable()
@@ -42,7 +36,7 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly auditService: AuditService,
     @Inject('ClerkClient') private readonly clerkClient: ClerkClient,
-    
+
     // Specialized services
     private readonly webhookHandler: WebhookHandlerService,
     private readonly profileUpdateService: ProfileUpdateService,
@@ -102,12 +96,7 @@ export class AuthService {
   /**
    * Delete user account (Delegate to AccountDeletionService)
    */
-  async deleteAccount(
-    clerkId: string,
-    userId: string,
-    requestId?: string,
-    ipAddress?: string,
-  ) {
+  async deleteAccount(clerkId: string, userId: string, requestId?: string, ipAddress?: string) {
     return this.accountDeletionService.deleteAccount(
       clerkId,
       userId,
@@ -122,7 +111,7 @@ export class AuthService {
 
   /**
    * Promote student to admin
-   * 
+   *
    * This stays in AuthService as it's a specific business operation
    * that doesn't fit cleanly into any specialized service.
    */
@@ -207,12 +196,7 @@ export class AuthService {
   /**
    * Create super admin (DEV ONLY)
    */
-  async createSuperAdmin(
-    email: string,
-    password: string,
-    firstName: string,
-    lastName: string,
-  ) {
+  async createSuperAdmin(email: string, password: string, firstName: string, lastName: string) {
     return this.devUtilities.createSuperAdmin(email, password, firstName, lastName);
   }
 }
