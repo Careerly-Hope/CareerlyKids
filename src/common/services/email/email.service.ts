@@ -125,8 +125,8 @@ export class EmailService {
   private generateTokenEmailHtml(params: SendAccessTokenParams): string {
     const { name, school, token, type, expiresAt, maxUsage } = params;
     const greeting = name ? `Hi ${name}` : 'Hello';
-    // const dynamicAssessmentUrl = `${this.assessmentUrl}/${token}`;
-    const dynamicAssessmenInnstructionstUrl = `${this.assessmentUrl}/instructions`;
+    // const dynamicAssessmentUrl = `${this.assessmentUrl}/results/${token}`;
+    const dynamicAssessmentInstructionUrl = `${this.assessmentUrl}/instructions`;
 
     const expiryDate = expiresAt.toLocaleDateString('en-US', {
       year: 'numeric',
@@ -177,7 +177,7 @@ export class EmailService {
                 <p><strong>Important:</strong> Keep this token secure. ${usageText}</p>
               </div>
               <div style="text-align:center; margin:30px 0;">
-                <a href="${dynamicAssessmenInnstructionstUrl}"
+                <a href="${dynamicAssessmentInstructionUrl}"
                    style="background:#667eea; color:#fff; padding:12px 25px; text-decoration:none; border-radius:6px;">
                   Start Assessment
                 </a>
