@@ -32,7 +32,7 @@ import { PaginationQueryDto } from './dto/pagination-querry.dto';
 import { Request } from 'express';
 
 @ApiTags('Assessments')
-@Public()
+// @Public()
 @ApiBearerAuth('bearer')
 @Controller('v2/assessments')
 export class AssessmentsController {

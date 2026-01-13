@@ -28,6 +28,7 @@ import { PurchaseBulkTokenDto } from './dto/purchase-bulk.dto';
 import { BulkQuoteDto } from './dto/bulk-quote.dto';
 import { PurchaseIndividualTokenDto } from './dto/purchase-indivdual.dto';
 import { PaystackWebhookDto } from './dto/paystack-webhook.dto';
+import { ApiResponse } from '../../../common/dto/response.dto';
 
 @ApiTags('Token Purchase')
 @Controller('token-purchase')
@@ -40,7 +41,6 @@ export class TokenPurchaseController {
   // ===================================================================
   // INDIVIDUAL TOKEN PURCHASE
   // ===================================================================
-
   @Post('individual')
   @AllAuthenticated()
   @ApiBearerAuth('bearer')
@@ -53,13 +53,16 @@ export class TokenPurchaseController {
     @Body() dto: PurchaseIndividualTokenDto,
     @CurrentUserId() userId: string,
   ) {
-    return this.orchestrator.purchaseIndividualToken(dto, userId);
+    const result = await this.orchestrator.purchaseIndividualToken(dto, userId);
+    return ApiResponse.success(
+      result,
+      'Individual token purchase initialized successfully',
+    );
   }
 
   // ===================================================================
   // BULK TOKEN PURCHASE
   // ===================================================================
-
   @Post('bulk/quote')
   @AdminOnly()
   @ApiBearerAuth('bearer')
@@ -69,7 +72,8 @@ export class TokenPurchaseController {
     description: 'Calculate pricing for bulk tokens with volume discounts',
   })
   async getBulkQuote(@Body() dto: BulkQuoteDto) {
-    return this.orchestrator.getBulkQuote(dto.quantity);
+    const quote = await this.orchestrator.getBulkQuote(dto.quantity);
+    return ApiResponse.success(quote, 'Bulk purchase quote generated successfully');
   }
 
   @Post('bulk')
@@ -81,14 +85,17 @@ export class TokenPurchaseController {
     summary: '🔵 Purchase bulk token',
     description: 'Initialize payment for enterprise token with multiple uses',
   })
-  async purchaseBulkToken(@Body() dto: PurchaseBulkTokenDto, @CurrentUserId() userId: string) {
-    return this.orchestrator.purchaseBulkToken(dto, userId);
+  async purchaseBulkToken(
+    @Body() dto: PurchaseBulkTokenDto,
+    @CurrentUserId() userId: string,
+  ) {
+    const result = await this.orchestrator.purchaseBulkToken(dto, userId);
+    return ApiResponse.success(result, 'Bulk token purchase initialized successfully');
   }
 
   // ===================================================================
   // PAYMENT VERIFICATION
   // ===================================================================
-
   @Get('verify/:reference')
   @Public()
   @ApiBearerAuth('bearer')
@@ -97,13 +104,13 @@ export class TokenPurchaseController {
     description: 'Verify payment status with Paystack and generate token if successful',
   })
   async verifyPayment(@Param('reference') reference: string) {
-    return this.orchestrator.verifyPaymentAndGenerateToken(reference);
+    const result = await this.orchestrator.verifyPaymentAndGenerateToken(reference);
+    return ApiResponse.success(result, 'Payment verified and token generated successfully');
   }
 
   // ===================================================================
   // WEBHOOK ENDPOINT (PUBLIC)
   // ===================================================================
-
   @Post('webhook/paystack')
   @Public()
   @HttpCode(HttpStatus.OK)
@@ -117,7 +124,6 @@ export class TokenPurchaseController {
   ) {
     // Validate signature
     const rawBody = req.rawBody?.toString() || JSON.stringify(req.body);
-
     if (!this.paymentsService.validateWebhookSignature(rawBody, signature)) {
       throw new BadRequestException('Invalid webhook signature');
     }
@@ -128,13 +134,12 @@ export class TokenPurchaseController {
     // Process event via orchestrator
     await this.orchestrator.processWebhookEvent(payload.event, payload.data);
 
-    return { message: 'Webhook processed successfully' };
+    return ApiResponse.success(null, 'Webhook processed successfully');
   }
 
   // ===================================================================
   // ADMIN: RETRY TOKEN GENERATION
   // ===================================================================
-
   @Post('superAdmin/retry/:paymentId')
   @SuperAdminOnly()
   @ApiBearerAuth('bearer')
@@ -144,6 +149,7 @@ export class TokenPurchaseController {
     description: 'Manually retry token generation for completed payment (Admin only)',
   })
   async retryTokenGeneration(@Param('paymentId') paymentId: string) {
-    return this.orchestrator.retryTokenGeneration(paymentId);
+    const result = await this.orchestrator.retryTokenGeneration(paymentId);
+    return ApiResponse.success(result, 'Token generation retry completed successfully');
   }
-}
+} 
