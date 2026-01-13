@@ -32,8 +32,13 @@ import { ClerkWebhookEvent } from './dto/clerk-webhook.dto';
 import { AuthenticatedUser } from 'src/common/interfaces/authenticated-user.interface';
 import { SkipThrottle } from '@nestjs/throttler';
 import { RequestContext, RequestMetadata } from 'src/common/decorators/request-metadata.decorator';
-import { Roles } from 'src/common/decorators/roles.decorator';
+import { Roles, SuperAdminOnly } from 'src/common/decorators/roles.decorator';
 import { UserRole } from 'src/common/enums/user-role.enum';
+import {
+  ReconciliationStatsDto,
+  ReconcileUserResponseDto,
+  FullReconciliationResultDto,
+} from './dto/profile-reconcilliation.dto';
 
 @ApiTags('v2/Auth')
 @Controller('v2/auth')
@@ -66,10 +71,11 @@ export class AuthController {
       **Security:** Verified using Clerk webhook secret (svix)
     `,
   })
-   @SwaggerResponse({
+  @SwaggerResponse({
     status: 200,
     description: 'Webhook acknowledged. Invalid signatures or payloads are logged and ignored.',
-  })  async handleWebhook(
+  })
+  async handleWebhook(
     @Headers('svix-id') svixId: string,
     @Headers('svix-timestamp') svixTimestamp: string,
     @Headers('svix-signature') svixSignature: string,
@@ -103,14 +109,13 @@ export class AuthController {
         svixId,
         message: error.message,
       });
-    
+
       // IMPORTANT: acknowledge receipt to stop retries
       return {
         success: false,
         error: 'Invalid signature',
       };
     }
-    
 
     // ✅ Extract event ID for idempotency
     const eventId = svixId; // Svix ID is unique per event
@@ -167,8 +172,6 @@ export class AuthController {
     return ApiResponse.success(user, 'User profile retrieved');
   }
 
-
-
   @Patch('users/:userId/promote')
   @Roles(UserRole.STUDENT, UserRole.SUPER_ADMIN)
   @ApiBearerAuth('bearer')
@@ -186,10 +189,9 @@ export class AuthController {
       context.requestId,
       context.ipAddress,
     );
-  
+
     return ApiResponse.success(user, 'User promoted to admin');
   }
-  
 
   @Patch('profile')
   @ApiBearerAuth('bearer')
@@ -242,6 +244,138 @@ export class AuthController {
     );
 
     return ApiResponse.success(result, 'Account deleted successfully');
+  }
+
+  // ============================================
+  // RECONCILIATION ENDPOINTS (SUPER_ADMIN ONLY)
+  // ============================================
+
+  /**
+   * Get reconciliation statistics
+   * Shows system health and last run info
+   */
+  @Get('superAdmin/reconciliation/stats')
+  @SuperAdminOnly()
+  @ApiBearerAuth('bearer')
+  @ApiOperation({
+    summary: '🔄 Get reconciliation statistics',
+    description:
+      'View reconciliation health, last runs, and drift trends (SUPER_ADMIN only)',
+  })
+  @SwaggerResponse({
+    status: 200,
+    description: 'Reconciliation stats retrieved successfully',
+    type: ReconciliationStatsDto,
+  })
+  @SwaggerResponse({ status: 403, description: 'Insufficient permissions (SUPER_ADMIN only)' })
+  async getReconciliationStats(): Promise<ReconciliationStatsDto> {
+    const stats = await this.authService.getReconciliationStats();
+    return stats;
+  }
+
+  /**
+   * Reconcile a single user (manual trigger)
+   * For debugging specific user data issues
+   */
+  @Post('superAdmin/reconciliation/user/:clerkId')
+  @SuperAdminOnly()
+  @ApiBearerAuth('bearer')
+  @ApiOperation({
+    summary: '🔄 Reconcile single user',
+    description:
+      'Manually reconcile a specific user between Clerk and database (SUPER_ADMIN only)',
+  })
+  @SwaggerResponse({
+    status: 200,
+    description: 'User reconciliation completed',
+    type: ReconcileUserResponseDto,
+  })
+  @SwaggerResponse({ status: 400, description: 'Invalid clerk ID' })
+  @SwaggerResponse({ status: 403, description: 'Insufficient permissions (SUPER_ADMIN only)' })
+  async reconcileUser(
+    @Param('clerkId') clerkId: string,
+  ): Promise<ReconcileUserResponseDto> {
+    if (!clerkId || clerkId.trim().length === 0) {
+      throw new BadRequestException('Invalid clerkId');
+    }
+
+    const result = await this.authService.reconcileUser(clerkId);
+
+    return {
+      clerkId,
+      driftDetected: result.drift,
+      changes: result.changes,
+      repaired: result.success && result.drift,
+      message: result.success
+        ? result.drift
+          ? `Drift detected and repaired: ${result.changes.length} field(s) updated`
+          : 'No drift detected - data is consistent'
+        : `Reconciliation failed: ${result.error || 'Unknown error'}`,
+    };
+  }
+
+  /**
+   * Run full reconciliation (emergency use)
+   * Checks all users - can take several minutes
+   */
+  @Post('superAdmin/reconciliation/full')
+  @SuperAdminOnly()
+  @ApiBearerAuth('bearer')
+  @ApiOperation({
+    summary: '🔄 Run full reconciliation',
+    description:
+      'Reconcile all users between Clerk and database. Use with caution - can take several minutes (SUPER_ADMIN only)',
+  })
+  @SwaggerResponse({
+    status: 200,
+    description: 'Full reconciliation completed',
+    type: FullReconciliationResultDto,
+  })
+  @SwaggerResponse({
+    status: 400,
+    description: 'Reconciliation already running or rate limited',
+  })
+  @SwaggerResponse({ status: 403, description: 'Insufficient permissions (SUPER_ADMIN only)' })
+  async fullReconciliation(
+    @CurrentUser() user: AuthenticatedUser['dbUser'],
+  ): Promise<FullReconciliationResultDto> {
+    // Rate limiting: Check last run time
+    const stats = await this.authService.getReconciliationStats();
+    const lastRun = stats.lastManualRun;
+
+    if (lastRun) {
+      const timeSinceLastRun = Date.now() - lastRun.getTime();
+      const cooldown = 60 * 60 * 1000; // 1 hour
+
+      if (timeSinceLastRun < cooldown) {
+        const minutesRemaining = Math.ceil((cooldown - timeSinceLastRun) / (60 * 1000));
+        throw new BadRequestException(
+          `Full reconciliation can only run once per hour. Try again in ${minutesRemaining} minute(s).`,
+        );
+      }
+    }
+
+    // Run reconciliation (synchronous for now)
+    this.logger.log(`Full reconciliation initiated by ${user.email} (${user.clerkId})`);
+    const startTime = Date.now();
+
+    const summary = await this.authService.reconcileAllUsers(user.email);
+
+    const duration = Date.now() - startTime;
+
+    return {
+      summary: {
+        ...summary,
+        duration,
+      },
+      timestamp: new Date(),
+      initiatedBy: user.email,
+      details: {
+        usersChecked: [], // TODO: Track specific users if needed
+        usersRepaired: [], // TODO: Track repaired users if needed
+        usersFailed: [], // TODO: Track failed users if needed
+      },
+    };
   }
 
   // ============================================
@@ -327,7 +461,10 @@ export class AuthController {
       },
     },
   })
-  @SwaggerResponse({ status: 400, description: 'Bad request - user not found or template missing' })
+  @SwaggerResponse({
+    status: 400,
+    description: 'Bad request - user not found or template missing',
+  })
   @SwaggerResponse({ status: 403, description: 'Not available in production' })
   async generateTestToken(@Body() body: { email: string; templateName?: string }) {
     const result = await this.authService.generateTestToken(

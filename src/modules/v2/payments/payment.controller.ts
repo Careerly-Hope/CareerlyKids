@@ -2,7 +2,7 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { PaymentsService } from './payment.service';
-import { AllAuthenticated } from '../../../common/decorators/roles.decorator';
+import { AllAuthenticated, SuperAdminOnly } from '../../../common/decorators/roles.decorator';
 import { CurrentUserId } from '../../../common/decorators/current-user.decorator';
 
 @ApiTags('Payments')
@@ -33,8 +33,8 @@ export class PaymentsController {
   // ADMIN ENDPOINTS
   // ===================================================================
 
-  @Get('admin/statistics')
-  @AllAuthenticated()
+  @Get('superAdmin/statistics')
+  @SuperAdminOnly() 
   @ApiOperation({ summary: 'Get payment statistics' })
   async getPaymentStatistics() {
     return this.paymentsService.getPaymentStatistics();

@@ -16,6 +16,7 @@ import { FeedBackDto } from './dto/submit-feedback.dto';
 import { GetResultDto } from './dto/get-results.dto';
 import { AdminSendResultsDto } from './dto/admin-send-results.dto';
 import { Public } from 'src/common/decorators/public.decorator';
+import { SuperAdminOnly } from 'src/common/decorators/roles.decorator';
 
 /**
  * 🎯 CAREER ASSESSMENTS
@@ -306,6 +307,149 @@ Shows usage statistics grouped by student class/grade.
     return this.assessmentsService.getUsageByClass(token);
   }
 
+
+
+
+
+
+@Get('token-report/:token/detailed')
+@ApiOperation({
+  summary: '🔵 Get comprehensive token usage report with full results',
+  description: `
+**Roles:** ADMIN
+
+Enhanced token report that combines student tracking with complete assessment results.
+
+**Perfect for:**
+- Detailed student performance analysis
+- Comprehensive school reporting
+- Identifying trends across a cohort
+- Export-ready data for presentations
+
+**Returns:**
+- All basic token information
+- Usage statistics and trends
+- **Full test results for each student:**
+  - RIASEC scores breakdown
+  - Top 10 career matches
+  - AI stream recommendations
+  - Feedback ratings (if submitted)
+- **Aggregate analytics:**
+  - Career code distribution across students
+  - Tier distribution
+  - Average scores across the group
+  - Most common career matches
+
+**Use cases:**
+- Generate class performance reports
+- Compare students within same cohort
+- Identify common career interests
+- Track assessment completion rates
+- Export data for school administration
+  `,
+})
+@ApiParam({
+  name: 'token',
+  description: 'Access token',
+  example: 'LINCO-A3F8',
+})
+@ApiResponse({
+  status: 200,
+  description: 'Comprehensive token usage report with full student results',
+  schema: {
+    type: 'object',
+    properties: {
+      tokenInfo: {
+        type: 'object',
+        properties: {
+          token: { type: 'string', example: 'LINCO-A3F8' },
+          school: { type: 'string', example: 'Lincoln High School' },
+          type: { type: 'string', example: 'ENTERPRISE' },
+          status: { type: 'string', example: 'ACTIVE' },
+          createdAt: { type: 'string' },
+          expiresAt: { type: 'string' },
+          firstUsedAt: { type: 'string' },
+        },
+      },
+      usageStats: {
+        type: 'object',
+        properties: {
+          usageCount: { type: 'number', example: 3 },
+          maxUsage: { type: 'number', example: 10 },
+          remainingUsage: { type: 'number', example: 7 },
+          totalStudents: { type: 'number', example: 3 },
+          totalViews: { type: 'number', example: 8 },
+          averageViewsPerStudent: { type: 'number', example: 2.7 },
+          studentsWithFeedback: { type: 'number', example: 2 },
+          averageFeedbackRating: { type: 'number', example: 4.5 },
+        },
+      },
+      analytics: {
+        type: 'object',
+        properties: {
+          careerCodeDistribution: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                code: { type: 'string', example: 'ISA' },
+                count: { type: 'number', example: 2 },
+              },
+            },
+          },
+          tierDistribution: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                tier: { type: 'string', example: 'Tier 1' },
+                count: { type: 'number', example: 1 },
+              },
+            },
+          },
+          averageScores: {
+            type: 'object',
+            example: { R: 7.2, I: 8.5, A: 6.8, S: 7.0, E: 5.5, C: 6.2 },
+          },
+          topCareerMatches: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                careerName: { type: 'string', example: 'Software Developer' },
+                count: { type: 'number', example: 2 },
+              },
+            },
+          },
+        },
+      },
+      students: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            name: { type: 'string', example: 'John Doe' },
+            class: { type: 'string', example: 'Grade 10A' },
+            parentEmail: { type: 'string', example: 'parent@example.com' },
+            unlockedAt: { type: 'string' },
+            viewCount: { type: 'number', example: 3 },
+            result: {
+              type: 'object',
+              description: 'Full test results including scores, matches, and AI recommendations',
+            },
+          },
+        },
+      },
+    },
+  },
+})
+@ApiResponse({ status: 404, description: 'Token not found' })
+async getTokenReportDetailed(@Param('token') token: string) {
+  return this.assessmentsService.getTokenUsageReportDetailed(token);
+}
+
+
+
   @Post('feedback')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -335,7 +479,8 @@ Provide feedback and rating for assessment results.
     return this.assessmentsService.submitFeedback(dto);
   }
 
-  @Post('admin/send-results')
+  @Post('superAdmin/send-results')
+  @SuperAdminOnly()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: '🔴 Manually send results email',

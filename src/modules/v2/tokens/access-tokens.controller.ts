@@ -46,7 +46,7 @@ export class TokensController {
   // ADMIN ENDPOINTS
   // ===================================================================
 
-  @Get('admin/all')
+  @Get('superAdmin/all')
   @SuperAdminOnly()
   @ApiOperation({ summary: 'List all tokens (platform-wide)' })
   async getAllTokens(
@@ -58,7 +58,7 @@ export class TokensController {
     return this.tokensService.getAllTokens({ type, status, page, limit });
   }
 
-  @Post('admin/:code/revoke')
+  @Post('superAdmin/:code/revoke')
   @SuperAdminOnly()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Revoke token' })

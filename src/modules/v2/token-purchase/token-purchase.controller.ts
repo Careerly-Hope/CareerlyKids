@@ -61,8 +61,7 @@ export class TokenPurchaseController {
   // ===================================================================
 
   @Post('bulk/quote')
-  @UseGuards(RolesGuard)
-  @AdminOnly()
+   @AdminOnly()
   @ApiBearerAuth('bearer')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -91,8 +90,7 @@ export class TokenPurchaseController {
   // ===================================================================
 
   @Get('verify/:reference')
-  @UseGuards(RolesGuard)
-  @Public()
+   @Public()
   @ApiBearerAuth('bearer')
   @ApiOperation({
     summary: '✅ Verify payment and generate token',
@@ -137,9 +135,8 @@ export class TokenPurchaseController {
   // ADMIN: RETRY TOKEN GENERATION
   // ===================================================================
 
-  @Post('admin/retry/:paymentId')
-  @UseGuards(RolesGuard)
-  @SuperAdminOnly()
+  @Post('superAdmin/retry/:paymentId')
+   @SuperAdminOnly()
   @ApiBearerAuth('bearer')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({

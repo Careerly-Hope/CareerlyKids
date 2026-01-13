@@ -22,91 +22,97 @@ A complete guide to understanding how authentication works in your application.
 
 ### What is this system?
 
-Your app uses **Clerk** for authentication (login/signup) and maintains its own **database** for user data. Think of it like this:
+Your app uses **Clerk** for authentication (login/signup) and maintains its own **database** for user data.
 
-- **Clerk** = Your security guard (handles passwords, tokens, login)
-- **Your Database** = Your filing cabinet (stores user profiles, relationships)
+```
+┌──────────────┐         ┌──────────────┐
+│    Clerk     │         │  Your  DB    │
+│ (Security)   │  sync   │ (Features)   │
+└──────────────┘ ──────► └──────────────┘
+```
 
-### Why two systems?
-
-1. **Clerk** is an expert at security - let them handle the hard stuff
-2. **Your Database** lets you build features - join users with posts, courses, etc.
-3. **Together** they give you both security and flexibility
+- **Clerk** = Security guard (passwords, tokens, login)
+- **Your Database** = Filing cabinet (profiles, relationships)
 
 ---
 
 ## The Big Picture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         USER JOURNEY                             │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│                    USER JOURNEY                          │
+└─────────────────────────────────────────────────────────┘
 
-1. 👤 User signs up
-   ↓
-   Clerk creates account → Webhook → Your DB creates profile
-   
-2. 🔑 User logs in
-   ↓
-   Clerk verifies password → Returns JWT token → User saves token
-   
-3. 📱 User makes API request
-   ↓
-   Sends token → Your app verifies → Checks DB → Returns data
-   
-4. ✏️ User updates profile
-   ↓
-   Your app updates Clerk → Updates DB → Logs change
-   
-5. 🗑️ User deletes account
-   ↓
-   Your app tells Clerk → Webhook → Your DB soft-deletes
+1. 👤 Signup
+   User → Clerk → Webhook → Your DB
+
+2. 🔑 Login  
+   User → Clerk → JWT Token → Store
+
+3. 📱 API Request
+   Token → Verify → DB Lookup → Response
+
+4. ✏️ Update Profile
+   Request → Clerk First → DB Mirror → Audit
+
+5. 🗑️ Delete Account
+   Request → Clerk Delete → Webhook → Soft Delete DB
 ```
 
 ---
 
 ## Core Concepts
 
-### 1. **Clerk = Source of Truth**
+### 1. Clerk = Source of Truth
 
-Clerk owns:
-- Email/password
-- Authentication tokens (JWT)
-- Login sessions
-- Basic profile (firstName, lastName)
-- Custom metadata (school, grade, bio, dateOfBirth)
+```
+┌─────────────────────────────────────────────┐
+│           CLERK OWNS                        │
+├─────────────────────────────────────────────┤
+│ • Email/Password                            │
+│ • JWT Tokens                                │
+│ • Login Sessions                            │
+│ • firstName, lastName (built-in)            │
+│ • publicMetadata (school, grade, bio, dob)  │
+└─────────────────────────────────────────────┘
+```
 
-**Rule:** Always update Clerk first, then mirror to your database.
+**Rule:** Always update Clerk first, then mirror to database.
 
-### 2. **Your Database = Application Data**
+---
 
-Your database stores:
-- User profiles (mirrored from Clerk)
-- Relationships (posts, enrollments, courses)
-- Foreign keys (userId references)
-- Application-specific fields (phoneNumber, status)
+### 2. Database = Application Data
+
+```
+┌─────────────────────────────────────────────┐
+│         YOUR DATABASE STORES                │
+├─────────────────────────────────────────────┤
+│ • User profiles (mirrored from Clerk)       │
+│ • Relationships (posts, courses)            │
+│ • Foreign keys (userId references)          │
+│ • Application fields (phoneNumber, status)  │
+└─────────────────────────────────────────────┘
+```
 
 **Rule:** Database follows Clerk, never leads.
 
-### 3. **Webhooks = Sync Mechanism**
+---
 
-When something happens in Clerk (signup, update, delete), Clerk sends you a webhook:
+### 3. Webhooks = Sync Mechanism
 
 ```
 Clerk Event → Webhook → Your App → Database Update
 ```
 
-**This keeps everything in sync automatically.**
+Keeps everything in sync automatically.
 
-### 4. **JWT Tokens = Proof of Identity**
+---
 
-When a user logs in via Clerk, they get a JWT token:
+### 4. JWT Tokens = Proof of Identity
 
 ```
-User Login → Clerk → JWT Token → User stores it → Sends with every request
+User Login → Clerk → JWT → User Stores → Sends with Requests
 ```
-
-Your app verifies this token on every protected request.
 
 ---
 
@@ -115,390 +121,404 @@ Your app verifies this token on every protected request.
 ### Step-by-Step: User Signs Up
 
 ```
-1. User fills signup form in your frontend
-   ↓
-2. Frontend calls Clerk signup API
-   ↓
-3. Clerk creates user account
-   ↓
-4. Clerk sends "user.created" webhook to your backend
-   ↓
-5. Your backend receives webhook
-   ↓
-6. WebhookHandlerService creates user in database
-   ↓
-7. User now exists in both Clerk and your database
+┌─────────┐
+│Frontend │ 1. POST /signup
+└────┬────┘
+     │
+     ▼
+┌─────────┐
+│ Clerk   │ 2. Create user ✓
+└────┬────┘
+     │ 3. Webhook: user.created
+     ▼
+┌─────────────┐
+│Your Backend │ 4. Verify signature
+└──────┬──────┘
+       │
+       ▼
+┌─────────────┐
+│  Database   │ 5. Create profile ✓
+└─────────────┘
 ```
 
-**Key Files:**
-- `auth.controller.ts` → Receives webhook
-- `webhook-handler.service.ts` → Creates database record
-- `webhook-idempotency.service.ts` → Prevents duplicates
+---
 
 ### Step-by-Step: User Logs In
 
 ```
-1. User enters email/password in your frontend
-   ↓
-2. Frontend calls Clerk login API
-   ↓
-3. Clerk verifies credentials
-   ↓
-4. Clerk returns JWT token (valid for 1 hour by default)
-   ↓
-5. Frontend stores token (localStorage/cookie)
-   ↓
-6. Frontend sends token with every API request
+┌─────────┐
+│Frontend │ 1. POST /login (email, password)
+└────┬────┘
+     │
+     ▼
+┌─────────┐
+│ Clerk   │ 2. Verify credentials ✓
+└────┬────┘
+     │ 3. Return JWT token
+     ▼
+┌─────────┐
+│Frontend │ 4. Store token
+└─────────┘    5. Send with every request
 ```
 
-**Key Point:** Your backend never sees the password!
+---
 
-### Step-by-Step: User Makes API Request
-
-```
-1. Frontend sends request with token:
-   Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...
-   ↓
-2. Your backend receives request
-   ↓
-3. ClerkStrategy (Passport guard) intercepts
-   ↓
-4. Verifies token with Clerk
-   ↓
-5. Looks up user in database
-   ↓
-6. Attaches user to request object
-   ↓
-7. Controller handler runs with authenticated user
-```
-
-**Key Files:**
-- `clerk.strategy.ts` → Verifies token
-- `jwt-auth.guard.ts` → Protects routes
-- `current-user.decorator.ts` → Extracts user from request
-
-### Step-by-Step: User Updates Profile
+### Step-by-Step: Protected API Request
 
 ```
-1. User submits profile update form
-   ↓
-2. Frontend calls PATCH /api/v2/auth/profile
-   ↓
-3. ProfileUpdateService validates changes
-   ↓
-4. Updates Clerk first (source of truth)
-   ↓
-5. If Clerk succeeds → Updates database
-   ↓
-6. If Clerk fails → Stops (database not touched)
-   ↓
-7. If database fails → Rolls back Clerk update
-   ↓
-8. Logs change in audit table
+┌─────────┐
+│Frontend │ 1. GET /api/v2/auth/me + token
+└────┬────┘
+     │
+     ▼
+┌──────────────┐
+│ClerkStrategy │ 2. Extract & verify token
+└──────┬───────┘
+       │ 3. Valid? ✓
+       ▼
+┌──────────────┐
+│  Database    │ 4. Lookup user
+└──────┬───────┘
+       │ 5. Attach to request
+       ▼
+┌──────────────┐
+│ Controller   │ 6. Process request
+└──────┬───────┘
+       │
+       ▼
+┌─────────┐
+│Frontend │ 7. Return response
+└─────────┘
 ```
 
-**Key Files:**
-- `auth.controller.ts` → Receives request
-- `profile-update.service.ts` → Handles update logic
-- `audit.service.ts` → Records changes
+---
 
-### Step-by-Step: User Deletes Account
+### Step-by-Step: Profile Update (NEW FLOW)
 
 ```
-1. User clicks "Delete Account"
-   ↓
-2. Frontend calls DELETE /api/v2/auth/account
-   ↓
-3. AccountDeletionService calls Clerk delete API
-   ↓
-4. Clerk deletes user
-   ↓
-5. Clerk sends "user.deleted" webhook
-   ↓
-6. WebhookHandlerService soft-deletes in database
-   ↓
-7. User marked as INACTIVE, not permanently deleted
+┌─────────┐
+│Frontend │ 1. PATCH /profile {firstName: "Jane"}
+└────┬────┘
+     │
+     ▼
+┌──────────────────┐
+│ProfileUpdate     │ 2. Normalize & validate
+│Service           │
+└────┬─────────────┘
+     │
+     │ 3. Fetch current state
+     ├─────────────┬─────────────┐
+     ▼             ▼             ▼
+┌─────────┐   ┌─────────┐   ┌─────────┐
+│  Clerk  │   │Database │   │ Merge   │
+│  State  │   │  State  │   │Metadata │
+└────┬────┘   └────┬────┘   └────┬────┘
+     │             │             │
+     └─────────────┴─────────────┘
+                   │
+                   ▼
+           ┌──────────────┐
+           │Prepare Clerk │ 4. Build updates
+           │Updates with  │    (merge metadata)
+           │Merge         │
+           └──────┬───────┘
+                  │
+                  ▼
+           ┌──────────────┐
+           │    Clerk     │ 5. Update ✓
+           └──────┬───────┘
+                  │ Success
+                  ▼
+           ┌──────────────┐
+           │  Database    │ 6. Mirror ✓
+           └──────┬───────┘
+                  │ Success
+                  ▼
+           ┌──────────────┐
+           │ AuditLog     │ 7. Record change ✓
+           └──────┬───────┘
+                  │
+                  ▼
+           ┌──────────────┐
+           │   Response   │
+           └──────────────┘
+
+IF Database Fails:
+           ┌──────────────┐
+           │  Database    │ ❌ Error
+           └──────┬───────┘
+                  │
+                  ▼
+           ┌──────────────┐
+           │Rollback Clerk│ 8. Revert to
+           │(3 retries)   │    original state
+           └──────┬───────┘
+                  │
+                  ▼
+           ┌──────────────┐
+           │    Clerk     │ ✓ Reverted
+           └──────────────┘
 ```
 
-**Key Files:**
-- `account-deletion.service.ts` → Triggers Clerk deletion
-- `webhook-handler.service.ts` → Handles cleanup
+---
+
+### Step-by-Step: Account Deletion
+
+```
+┌─────────┐
+│Frontend │ 1. DELETE /account
+└────┬────┘
+     │
+     ▼
+┌─────────────┐
+│   Clerk     │ 2. Delete user ✓
+└──────┬──────┘
+       │ 3. Webhook: user.deleted
+       ▼
+┌─────────────┐
+│Your Backend │ 4. Process webhook
+└──────┬──────┘
+       │
+       ▼
+┌─────────────┐
+│  Database   │ 5. Soft delete
+│             │    status = INACTIVE
+│             │    deletedAt = now()
+└─────────────┘
+```
 
 ---
 
 ## Services Explained
 
-### 1. **AuthService** (Main Orchestrator)
+### 1. AuthService (Orchestrator)
 
-**Location:** `auth.service.ts`
-
-**What it does:**
-- Coordinates all auth operations
-- Delegates to specialized services
-- Handles webhook events
-- Manages dev utilities
-
-**Methods:**
-- `handleUserCreated()` - Webhook: New user signup
-- `handleUserUpdated()` - Webhook: User profile change
-- `handleUserDeleted()` - Webhook: User account deletion
-- `updateProfile()` - User updates their profile
-- `deleteAccount()` - User deletes their account
-- `generateTestToken()` - DEV: Create test tokens
-- `createSuperAdmin()` - DEV: Create admin users
-
-**Think of it as:** The receptionist who directs you to the right department.
-
----
-
-### 2. **ClerkStrategy** (Token Validator)
-
-**Location:** `clerk.strategy.ts`
-
-**What it does:**
-- Intercepts every protected API request
-- Verifies JWT token with Clerk
-- Looks up user in database
-- Attaches user to request
-
-**Flow:**
 ```
-Request → Extract token → Verify with Clerk → Lookup DB → Attach user
+┌────────────────────────────────────────┐
+│          AuthService                   │
+├────────────────────────────────────────┤
+│ • handleUserCreated()                  │
+│ • handleUserUpdated()                  │
+│ • handleUserDeleted()                  │
+│ • updateProfile()                      │
+│ • deleteAccount()                      │
+│ • generateTestToken() [DEV]           │
+│ • createSuperAdmin() [DEV]            │
+└────────────────────────────────────────┘
+         │
+         ├─► WebhookHandlers
+         ├─► ProfileUpdateService
+         ├─► AccountDeletionService
+         └─► DevUtilities
 ```
 
-**Think of it as:** The bouncer checking IDs at the door.
+---
+
+### 2. ClerkStrategy (Token Validator)
+
+```
+Request
+  │
+  ▼
+┌───────────────┐
+│Extract Token  │
+└───────┬───────┘
+        │
+        ▼
+┌───────────────┐
+│Verify w/Clerk │
+└───────┬───────┘
+        │
+        ▼
+┌───────────────┐
+│Lookup DB User │
+└───────┬───────┘
+        │
+        ▼
+┌───────────────┐
+│Attach to Req  │ ✓ user.dbUser
+└───────────────┘
+```
+
+**Rule:** READ-ONLY - Never creates users
 
 ---
 
-### 3. **WebhookHandlerService** (Sync Manager)
+### 3. ProfileUpdateService (NEW - Update Manager)
 
-**Location:** `services/webhook-handler.service.ts`
+```
+┌─────────────────────────────────────────────┐
+│      ProfileUpdateService Flow              │
+└─────────────────────────────────────────────┘
 
-**What it does:**
-- Receives events from Clerk
-- Creates/updates/deletes users in database
-- Prevents duplicate processing (idempotency)
+Input: UpdateProfileDto
+  │
+  ▼
+┌─────────────────┐
+│1. Normalize     │ Convert dates, validate
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│2. Fetch State   │ Parallel: Clerk + DB
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│3. Prepare       │ Merge with existing
+│   Clerk Updates │ Clerk metadata
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│4. Update Clerk  │ Source of truth
+└────────┬────────┘
+         │ ✓
+         ▼
+┌─────────────────┐
+│5. Update DB     │ Mirror Clerk
+└────────┬────────┘
+         │ ✓
+         ▼
+┌─────────────────┐
+│6. Audit Log     │ Record change
+└─────────────────┘
 
-**Handles:**
-- `user.created` - New signup
-- `user.updated` - Profile change in Clerk
-- `user.deleted` - Account deletion
-
-**Think of it as:** The messenger who keeps both offices in sync.
-
----
-
-### 4. **ProfileUpdateService** (Update Manager)
-
-**Location:** `services/profile-update.service.ts`
-
-**What it does:**
-- Handles profile updates
-- Updates Clerk first (source of truth)
-- Mirrors changes to database
-- Rolls back on failure
-- Logs all changes
+IF DB Fails:
+         │
+         ▼
+┌─────────────────┐
+│7. Rollback      │ Revert Clerk to
+│   Clerk         │ pre-update state
+│   (3 retries)   │ (uses Clerk snapshot)
+└─────────────────┘
+```
 
 **Key Features:**
-- **Normalization:** Converts dates, validates input
-- **Type Safety:** Strong typing, no `any`
-- **Rollback:** Reverts Clerk if database fails
-- **Audit Trail:** Records who, what, when, where
-
-**Think of it as:** The editor who makes sure changes are published correctly.
+- ✅ Metadata merging (preserves unrelated fields)
+- ✅ Rollback uses Clerk state (not stale DB)
+- ✅ Type-safe normalization
+- ✅ Comprehensive audit trail
 
 ---
 
-### 5. **AccountDeletionService** (Deletion Manager)
+### 4. WebhookIdempotencyService
 
-**Location:** `services/account-deletion.service.ts`
-
-**What it does:**
-- Triggers account deletion in Clerk
-- Logs deletion request
-- Webhook handles database cleanup
-
-**Why separate?**
-- Deletion is critical - deserves its own service
-- Clean separation of concerns
-- Easy to add deletion logic later (export data, notify users, etc.)
-
-**Think of it as:** The specialist who handles account closures.
-
----
-
-### 6. **ProfileReconciliationService** (Drift Detector)
-
-**Location:** `services/profile-reconciliation.service.ts`
-
-**What it does:**
-- Runs periodic checks (every 10 minutes)
-- Detects differences between Clerk and database
-- Automatically fixes mismatches
-- Alerts on high drift rates
-
-**Why needed?**
-- Network issues might cause missed webhooks
-- Manual changes in Clerk dashboard
-- Race conditions in updates
-
-**Think of it as:** The auditor who makes sure records match.
+```
+┌──────────────────────────────────────┐
+│   Webhook arrives                    │
+│   svix-id: evt_abc123                │
+└────────────────┬─────────────────────┘
+                 │
+                 ▼
+┌──────────────────────────────────────┐
+│   Try INSERT webhook_events          │
+│   eventId = 'evt_abc123'             │
+└────────────────┬─────────────────────┘
+                 │
+        ┌────────┴────────┐
+        │                 │
+        ▼                 ▼
+┌───────────┐      ┌──────────────┐
+│ Success   │      │ Duplicate    │
+│ (new evt) │      │ (P2002)      │
+└─────┬─────┘      └──────┬───────┘
+      │                   │
+      ▼                   ▼
+ Process          Skip & Return 200
+```
 
 ---
 
-### 7. **DevUtilitiesService** (Testing Tools)
+### 5. AuditService
 
-**Location:** `services/dev-utilities.service.ts`
-
-**What it does:**
-- Generates test tokens for Swagger/Postman
-- Creates super admin accounts
-- Only works in development mode
-
-**Methods:**
-- `generateTestToken()` - Create long-lived JWT for testing
-- `createSuperAdmin()` - Create admin users
-
-**Think of it as:** The workshop where you build test tools.
-
----
-
-### 8. **WebhookIdempotencyService** (Duplicate Prevention)
-
-**Location:** `services/webhook-idempotency.service.ts`
-
-**What it does:**
-- Tracks webhook events by ID
-- Prevents processing duplicates
-- Uses database unique constraint
-
-**Why needed?**
-Clerk might send the same webhook twice if:
-- Network timeout (retries)
-- Your server restart
-- Webhook delivery issues
-
-**Think of it as:** The stamp that marks "already processed."
-
----
-
-### 9. **AuditService** (Change Logger)
-
-**Location:** `audit/audit.service.ts` (imported)
-
-**What it does:**
-- Records all profile changes
-- Tracks who made changes
-- Stores when and where (IP, timestamp)
-
-**Used by:**
-- ProfileUpdateService
-- AccountDeletionService
-- WebhookHandlerService
-
-**Think of it as:** The security camera recording everything.
+```
+┌─────────────────────────────────────┐
+│        Audit Log Entry              │
+├─────────────────────────────────────┤
+│ userId:     "uuid-123"              │
+│ action:     "PROFILE_UPDATED"       │
+│ metadata:   {firstName: "Jane"}     │
+│ ipAddress:  "192.168.1.1"           │
+│ requestId:  "req_abc123"            │
+│ timestamp:  2026-01-08T14:30:00Z    │
+└─────────────────────────────────────┘
+```
 
 ---
 
 ## Endpoints Guide
 
-### 🔓 Public Endpoints (No Authentication)
+### 🔓 Public Endpoints
 
 #### 1. `POST /api/v2/auth/webhook/clerk`
 
-**Purpose:** Receive webhooks from Clerk
+```
+Clerk → [Webhook] → Your App
 
-**What happens:**
-1. Clerk sends event (user.created, user.updated, user.deleted)
-2. Your app verifies signature (security)
-3. Processes event (create/update/delete user)
-4. Returns success
-
-**Used by:** Clerk (automatic)
-
-**Security:** Svix signature verification
+Verifies:
+  ✓ Signature (svix)
+  ✓ Idempotency (no duplicates)
+  
+Handles:
+  • user.created
+  • user.updated
+  • user.deleted
+```
 
 ---
 
-#### 2. `POST /api/v2/auth/dev/generate-token` (DEV ONLY)
+#### 2. `POST /api/v2/auth/dev/generate-token` [DEV]
 
-**Purpose:** Generate test JWT tokens
-
-**What happens:**
-1. You provide user email
-2. Service finds user in Clerk
-3. Creates/finds active session
-4. Generates JWT token (10-year expiry)
-5. Returns token for Swagger/Postman
-
-**Used by:** Developers testing API
-
-**Example:**
-```json
-POST /api/v2/auth/dev/generate-token
+```
+Input:
 {
   "email": "student@test.com",
   "templateName": "api-testing"
 }
 
-Response:
+Output:
 {
   "token": "eyJhbGci...",
-  "howToUse": {
-    "swagger": "Click 'Authorize' and paste token"
-  }
+  "expiresAt": "2036-01-08T00:00:00Z"
 }
 ```
 
 ---
 
-#### 3. `POST /api/v2/auth/dev/create-super-admin` (DEV ONLY)
+#### 3. `POST /api/v2/auth/dev/create-super-admin` [DEV]
 
-**Purpose:** Create admin users
-
-**What happens:**
-1. Creates user in Clerk with SUPER_ADMIN role
-2. Creates user in database
-3. Returns credentials
-
-**Used by:** System setup, testing
-
-**Example:**
-```json
-POST /api/v2/auth/dev/create-super-admin
+```
+Input:
 {
   "email": "admin@test.com",
   "password": "Admin123!",
   "firstName": "John",
   "lastName": "Doe"
 }
+
+Creates in:
+  ✓ Clerk (with SUPER_ADMIN metadata)
+  ✓ Database (role = SUPER_ADMIN)
 ```
 
 ---
 
-### 🔒 Protected Endpoints (Requires Authentication)
+### 🔒 Protected Endpoints
 
 #### 4. `GET /api/v2/auth/me`
 
-**Purpose:** Get current user profile
-
-**What happens:**
-1. ClerkStrategy verifies JWT token
-2. Looks up user in database
-3. Returns user profile
-
-**Used by:** Frontend to load user data
-
-**Example:**
-```http
-GET /api/v2/auth/me
-Authorization: Bearer eyJhbGci...
+```
+Request:
+  GET /api/v2/auth/me
+  Authorization: Bearer <token>
 
 Response:
 {
-  "success": true,
+  "status": "success",
   "data": {
     "id": "uuid-123",
+    "clerkId": "user_abc",
     "email": "student@test.com",
     "firstName": "John",
     "role": "STUDENT",
@@ -511,253 +531,173 @@ Response:
 
 #### 5. `PATCH /api/v2/auth/profile`
 
-**Purpose:** Update user profile
+```
+Request:
+  PATCH /api/v2/auth/profile
+  Authorization: Bearer <token>
+  {
+    "firstName": "Jane",
+    "school": "New School",
+    "bio": "Updated bio"
+  }
 
-**What happens:**
-1. Validates input (dates, fields)
-2. Updates Clerk (firstName, lastName, metadata)
-3. Updates database (all fields including phoneNumber)
-4. Logs change in audit table
-5. On failure: Rolls back Clerk update
-
-**Used by:** Frontend profile settings
-
-**Example:**
-```http
-PATCH /api/v2/auth/profile
-Authorization: Bearer eyJhbGci...
-{
-  "firstName": "Jane",
-  "school": "New School",
-  "grade": "Grade 11"
-}
+Flow:
+  1. Normalize input ✓
+  2. Fetch Clerk + DB state ✓
+  3. Merge with existing metadata ✓
+  4. Update Clerk ✓
+  5. Update DB ✓
+  6. Audit log ✓
 
 Response:
 {
-  "success": true,
-  "data": { ...updated user... },
-  "message": "Profile updated successfully"
+  "status": "success",
+  "data": {...updated user...}
 }
 ```
 
 **Fields you can update:**
-- `firstName` - Stored in Clerk + DB
-- `lastName` - Stored in Clerk + DB
-- `phoneNumber` - Stored in DB only
-- `school` - Stored in Clerk metadata + DB
-- `grade` - Stored in Clerk metadata + DB
-- `bio` - Stored in Clerk metadata + DB
-- `dateOfBirth` - Stored in Clerk metadata + DB (as ISO string)
+
+| Field | Stored In | Notes |
+|-------|-----------|-------|
+| `firstName` | Clerk + DB | Built-in Clerk field |
+| `lastName` | Clerk + DB | Built-in Clerk field |
+| `phoneNumber` | DB only | Not in Clerk |
+| `school` | Clerk metadata + DB | Custom field |
+| `grade` | Clerk metadata + DB | Custom field |
+| `bio` | Clerk metadata + DB | Custom field |
+| `dateOfBirth` | Clerk metadata + DB | ISO string in Clerk |
 
 ---
 
 #### 6. `DELETE /api/v2/auth/account`
 
-**Purpose:** Delete user account
+```
+Request:
+  DELETE /api/v2/auth/account
+  Authorization: Bearer <token>
 
-**What happens:**
-1. Deletes user from Clerk
-2. Logs deletion request
-3. Clerk sends webhook
-4. Webhook soft-deletes in database (INACTIVE status)
-
-**Used by:** User account settings
-
-**Example:**
-```http
-DELETE /api/v2/auth/account
-Authorization: Bearer eyJhbGci...
+Flow:
+  1. Delete from Clerk ✓
+  2. Clerk sends webhook
+  3. Webhook soft-deletes DB
 
 Response:
 {
-  "success": true,
+  "status": "success",
   "message": "Account deletion requested. Cleanup will complete shortly."
 }
 ```
 
-**Note:** Database cleanup happens via webhook (async)
+**Note:** Async cleanup via webhook (soft delete)
 
 ---
 
 ## Data Flow Diagrams
 
-### Flow 1: User Signup
+### Profile Update with Metadata Merge
 
 ```
-┌─────────────┐
-│   Frontend  │
-└──────┬──────┘
-       │ 1. POST /signup (email, password)
-       ↓
-┌─────────────┐
-│    Clerk    │ ← User created here first
-└──────┬──────┘
-       │ 2. Webhook: user.created
-       ↓
-┌─────────────────────┐
-│  Your Backend       │
-│  (Webhook Endpoint) │
-└──────┬──────────────┘
-       │ 3. Verify signature
-       ↓
-┌─────────────────────┐
-│  WebhookHandler     │
-│  Service            │
-└──────┬──────────────┘
-       │ 4. Check idempotency
-       ↓
-┌─────────────┐
-│  Database   │ ← User profile created
-└─────────────┘
-```
+┌────────────────────────────────────────────────────────┐
+│         BEFORE UPDATE (Clerk State)                    │
+├────────────────────────────────────────────────────────┤
+│ firstName: "John"                                      │
+│ publicMetadata: {                                      │
+│   school: "Old School",                                │
+│   grade: "Grade 10",                                   │
+│   customField: "preserve-me"  ← Not in update         │
+│ }                                                      │
+└────────────────────────────────────────────────────────┘
 
----
+┌────────────────────────────────────────────────────────┐
+│         UPDATE REQUEST                                 │
+├────────────────────────────────────────────────────────┤
+│ {                                                      │
+│   firstName: "Jane",                                   │
+│   school: "New School"                                 │
+│ }                                                      │
+└────────────────────────────────────────────────────────┘
 
-### Flow 2: Protected API Request
+┌────────────────────────────────────────────────────────┐
+│         MERGE LOGIC                                    │
+├────────────────────────────────────────────────────────┤
+│ 1. Start with existing metadata:                      │
+│    {...existingMetadata}                              │
+│                                                        │
+│ 2. Overlay changed fields:                            │
+│    school: "New School"                               │
+│                                                        │
+│ 3. Result:                                            │
+│    {                                                   │
+│      school: "New School",        ← Updated           │
+│      grade: "Grade 10",           ← Preserved         │
+│      customField: "preserve-me"   ← Preserved         │
+│    }                                                   │
+└────────────────────────────────────────────────────────┘
 
-```
-┌─────────────┐
-│   Frontend  │
-└──────┬──────┘
-       │ 1. GET /api/v2/auth/me
-       │    Authorization: Bearer <token>
-       ↓
-┌─────────────────────┐
-│  Your Backend       │
-│  (Auth Guard)       │
-└──────┬──────────────┘
-       │ 2. Extract token
-       ↓
-┌─────────────────────┐
-│  ClerkStrategy      │
-└──────┬──────────────┘
-       │ 3. Verify with Clerk
-       ↓
-┌─────────────┐
-│    Clerk    │ ← Token validated
-└──────┬──────┘
-       │ 4. Token valid ✓
-       ↓
-┌─────────────────────┐
-│  ClerkStrategy      │
-└──────┬──────────────┘
-       │ 5. Lookup user in DB
-       ↓
-┌─────────────┐
-│  Database   │ ← User profile fetched
-└──────┬──────┘
-       │ 6. Return user data
-       ↓
-┌─────────────────────┐
-│  Controller         │
-│  (Handler)          │
-└──────┬──────────────┘
-       │ 7. Business logic
-       ↓
-┌─────────────┐
-│   Frontend  │ ← Response returned
-└─────────────┘
+┌────────────────────────────────────────────────────────┐
+│         AFTER UPDATE (Clerk State)                     │
+├────────────────────────────────────────────────────────┤
+│ firstName: "Jane"             ← Updated                │
+│ publicMetadata: {                                      │
+│   school: "New School",       ← Updated                │
+│   grade: "Grade 10",          ← Preserved              │
+│   customField: "preserve-me"  ← Preserved              │
+│ }                                                      │
+└────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-### Flow 3: Profile Update
+### Rollback Flow (Database Failure)
 
 ```
-┌─────────────┐
-│   Frontend  │
-└──────┬──────┘
-       │ 1. PATCH /profile { firstName: "Jane" }
-       ↓
-┌─────────────────────┐
-│  ProfileUpdate      │
-│  Service            │
-└──────┬──────────────┘
-       │ 2. Normalize & validate
-       ↓
-       │ 3. Update Clerk first
-       ↓
-┌─────────────┐
-│    Clerk    │ ← Source of truth updated
-└──────┬──────┘
-       │ 4. Success ✓
-       ↓
-┌─────────────────────┐
-│  ProfileUpdate      │
-│  Service            │
-└──────┬──────────────┘
-       │ 5. Update database
-       ↓
-┌─────────────┐
-│  Database   │ ← Mirror updated
-└──────┬──────┘
-       │ 6. Success ✓
-       ↓
-┌─────────────────────┐
-│  AuditService       │
-└──────┬──────────────┘
-       │ 7. Log change
-       ↓
-┌─────────────┐
-│  Database   │ ← Audit record created
-│ (audit log) │
-└──────┬──────┘
-       │ 8. Return updated user
-       ↓
-┌─────────────┐
-│   Frontend  │
-└─────────────┘
-
-If step 5 fails:
-       ↓
-┌─────────────────────┐
-│  ProfileUpdate      │
-│  Service            │
-└──────┬──────────────┘
-       │ Rollback Clerk (3 retries)
-       ↓
-┌─────────────┐
-│    Clerk    │ ← Reverted to original
-└─────────────┘
+┌────────────────────────────────────────────────────────┐
+│         1. INITIAL STATE                               │
+├────────────────────────────────────────────────────────┤
+│ Clerk:    firstName = "John"                           │
+│ Database: firstName = "John"                           │
+└────────────────────────────────────────────────────────┘
+                      │
+                      ▼
+┌────────────────────────────────────────────────────────┐
+│         2. UPDATE CLERK ✓                              │
+├────────────────────────────────────────────────────────┤
+│ Clerk:    firstName = "Jane"   (UPDATED)               │
+│ Database: firstName = "John"   (unchanged)             │
+└────────────────────────────────────────────────────────┘
+                      │
+                      ▼
+┌────────────────────────────────────────────────────────┐
+│         3. UPDATE DATABASE ❌                          │
+├────────────────────────────────────────────────────────┤
+│ Error: Connection timeout                              │
+│ Systems now out of sync!                               │
+└────────────────────────────────────────────────────────┘
+                      │
+                      ▼
+┌────────────────────────────────────────────────────────┐
+│         4. ROLLBACK CLERK (3 retries)                  │
+├────────────────────────────────────────────────────────┤
+│ Read from: clerkUserBeforeUpdate                       │
+│   firstName: "John"         ← Original Clerk state     │
+│   publicMetadata: {...}     ← Original metadata        │
+│                                                        │
+│ Restore to Clerk ✓                                     │
+└────────────────────────────────────────────────────────┘
+                      │
+                      ▼
+┌────────────────────────────────────────────────────────┐
+│         5. FINAL STATE (Consistent)                    │
+├────────────────────────────────────────────────────────┤
+│ Clerk:    firstName = "John"   (REVERTED)              │
+│ Database: firstName = "John"   (unchanged)             │
+│                                                        │
+│ ✓ Both systems in sync                                 │
+└────────────────────────────────────────────────────────┘
 ```
 
----
-
-### Flow 4: Account Deletion
-
-```
-┌─────────────┐
-│   Frontend  │
-└──────┬──────┘
-       │ 1. DELETE /account
-       ↓
-┌─────────────────────┐
-│  AccountDeletion    │
-│  Service            │
-└──────┬──────────────┘
-       │ 2. Delete from Clerk
-       ↓
-┌─────────────┐
-│    Clerk    │ ← User deleted
-└──────┬──────┘
-       │ 3. Webhook: user.deleted
-       ↓
-┌─────────────────────┐
-│  WebhookHandler     │
-│  Service            │
-└──────┬──────────────┘
-       │ 4. Soft delete in DB
-       ↓
-┌─────────────┐
-│  Database   │ ← Status: INACTIVE
-└──────┬──────┘
-       │ 5. Audit log
-       ↓
-┌─────────────┐
-│  Database   │
-│ (audit log) │
-└─────────────┘
-```
+**Key:** Rollback uses Clerk's pre-update snapshot, not DB state (which may be stale).
 
 ---
 
@@ -765,84 +705,50 @@ If step 5 fails:
 
 ### Scenario 1: "User profile not yet synchronized"
 
-**Symptom:**
-User just signed up, tries to login, gets error:
 ```
-"User profile not yet synchronized. Please try again in a moment."
+Timeline:
+  t=0ms:   User signs up in Clerk ✓
+  t=50ms:  User tries to login
+  t=100ms: Error: "Profile not synchronized"
+  t=200ms: Webhook arrives ✓
+  t=250ms: User retries login ✓
 ```
 
-**What happened:**
-1. User signed up in Clerk ✓
-2. Webhook hasn't been delivered yet ⏳
-3. Your database doesn't have user yet ✗
-
-**Solution:**
-- User waits 2-3 seconds and retries
-- Webhook arrives and creates database record
-- Next login succeeds ✓
-
-**Why it happens:**
-Webhooks are async - there's a tiny delay (usually < 1 second)
+**Solution:** User waits 2-3 seconds and retries.
 
 ---
 
-### Scenario 2: Duplicate webhook events
+### Scenario 2: Duplicate webhook
 
-**Symptom:**
-Webhook logs show:
 ```
-"Skipping duplicate user.created event: evt_123"
-```
+┌──────────────────────────────────────┐
+│ Webhook #1: evt_abc123               │
+│ → Process → Insert to DB ✓           │
+└──────────────────────────────────────┘
 
-**What happened:**
-Clerk sent the same webhook twice (network retry)
-
-**Solution:**
-WebhookIdempotencyService detects duplicate and skips it
-
-**Why it works:**
-Each webhook has unique `svix-id` stored in database with unique constraint
-
----
-
-### Scenario 3: Profile update fails
-
-**Symptom:**
-User updates profile, gets error, but some fields changed
-
-**What happened:**
-1. Clerk update succeeded ✓
-2. Database update failed ✗
-3. Rollback attempted ✓
-4. Clerk reverted to original ✓
-
-**Solution:**
-System automatically rolled back Clerk to maintain consistency
-
-**Logs show:**
-```
-⚠️ SYNC FAILURE: Clerk updated but DB failed for user clerk_123
-✅ Clerk rollback successful
+┌──────────────────────────────────────┐
+│ Webhook #2: evt_abc123 (retry)       │
+│ → Try Insert → Duplicate detected    │
+│ → Skip processing ✓                  │
+└──────────────────────────────────────┘
 ```
 
 ---
 
-### Scenario 4: Data drift detected
+### Scenario 3: Profile update rollback
 
-**Symptom:**
-Reconciliation logs show:
 ```
-⚠️ Drift detected for user clerk_123:
-  firstName: "John" → "Jane"
+Update Request
+  │
+  ├─► Clerk Update ✓ (firstName = "Jane")
+  │
+  ├─► DB Update ❌ (timeout)
+  │
+  ├─► Rollback Initiated
+  │   └─► Attempt 1: ✓ (Clerk reverted)
+  │
+  └─► Response: Error (consistent state maintained)
 ```
-
-**What happened:**
-Someone manually changed user in Clerk dashboard, but database wasn't updated
-
-**Solution:**
-ProfileReconciliationService automatically updates database to match Clerk
-
-**Runs:** Every 10 minutes (automatic)
 
 ---
 
@@ -850,270 +756,130 @@ ProfileReconciliationService automatically updates database to match Clerk
 
 ### Problem: "Invalid or expired token"
 
-**Possible causes:**
-1. Token expired (default: 1 hour)
-2. User was deleted
-3. Clock skew between server and Clerk
+**Causes:**
+- Token expired (1 hour default)
+- User deleted
+- Clock skew
 
 **Solutions:**
-1. Frontend should refresh token before expiry
-2. User needs to log in again
-3. Check server time is synchronized
-
----
-
-### Problem: "Webhook signature verification failed"
-
-**Possible causes:**
-1. Wrong `CLERK_WEBHOOK_SECRET` in .env
-2. Clerk dashboard webhook URL incorrect
-3. Request body was modified
-
-**Solutions:**
-1. Copy correct secret from Clerk dashboard
-2. Verify webhook URL matches your endpoint
-3. Check middleware isn't parsing body as JSON (needs raw body)
-
----
-
-### Problem: "User not found in database"
-
-**Possible causes:**
-1. Webhook not delivered yet (< 1 second)
-2. Webhook failed to process
-3. User created manually in Clerk (not via signup)
-
-**Solutions:**
-1. User retries after 2 seconds
-2. Check webhook logs for errors
-3. Use reconciliation service to sync
-
----
-
-### Problem: "Rollback failed after database error"
-
-**Symptom:**
-Logs show:
 ```
-❌ CRITICAL: Rollback failed for user clerk_123. Manual reconciliation required.
+Frontend → Check token expiry → Refresh before 1 hour
+User → Re-login if token expired
+Server → Verify system time is accurate
 ```
 
-**What to do:**
-1. Check reconciliation logs for details
-2. Run manual reconciliation:
-   ```
-   POST /admin/reconcile/clerk_123
-   ```
-3. Or wait for periodic reconciliation (every 10 minutes)
+---
+
+### Problem: "Webhook signature failed"
+
+**Check:**
+1. `CLERK_WEBHOOK_SECRET` in `.env`
+2. Webhook URL in Clerk dashboard
+3. Raw body middleware (not parsed JSON)
+
+---
+
+### Problem: "Rollback failed"
+
+**Log shows:**
+```
+❌ CRITICAL: Rollback failed for user clerk_123
+Manual reconciliation required.
+```
+
+**Action:**
+```
+Wait → Periodic reconciliation runs every 10 min
+Check → Audit logs for details
+Manual → Update Clerk/DB to match
+```
 
 ---
 
 ## Best Practices
 
-### 1. Always Update Clerk First
+### ✅ DO: Update Clerk First
 
 ```typescript
-// ✅ CORRECT
 await clerkClient.users.updateUser(clerkId, updates);
-await database.user.update({ where: { clerkId }, data: updates });
+await database.user.update({where: {clerkId}, data: updates});
+```
 
-// ❌ WRONG
-await database.user.update({ where: { clerkId }, data: updates });
+### ❌ DON'T: Update DB First
+
+```typescript
+// WRONG - DB before Clerk
+await database.user.update({where: {clerkId}, data: updates});
 await clerkClient.users.updateUser(clerkId, updates);
 ```
 
-**Why:** Clerk is source of truth. If Clerk fails, database shouldn't change.
-
 ---
 
-### 2. Never Store Passwords
+### ✅ DO: Merge Metadata
 
 ```typescript
-// ❌ NEVER DO THIS
-const user = {
-  email: 'test@test.com',
-  password: 'secret123', // ← Never store this!
+const metadataUpdates = {
+  ...existingMetadata,  // Preserve
+  school: "New School"   // Update
 };
 ```
 
-**Why:** Clerk handles passwords. Your app never sees them.
-
----
-
-### 3. Always Use Webhooks for Sync
+### ❌ DON'T: Replace Metadata
 
 ```typescript
-// ✅ CORRECT - Let webhook handle DB creation
-// User signs up → Clerk creates → Webhook creates DB record
-
-// ❌ WRONG - Don't create DB record on signup endpoint
-// User signs up → Your app creates in Clerk AND DB
-```
-
-**Why:** Webhooks are reliable, automatic, and idempotent.
-
----
-
-### 4. Use RequestContext for Audit Logs
-
-```typescript
-// ✅ CORRECT
-@Patch('profile')
-async updateProfile(
-  @CurrentUser() user,
-  @Body() dto,
-  @RequestContext() context, // ← Includes requestId, ipAddress
-) {
-  await service.updateProfile(user.clerkId, dto, user.id, context.requestId, context.ipAddress);
-}
-
-// ❌ WRONG - Missing audit trail
-async updateProfile(@CurrentUser() user, @Body() dto) {
-  await service.updateProfile(user.clerkId, dto, user.id);
-}
+// WRONG - Loses other fields
+const metadataUpdates = {
+  school: "New School"
+};
 ```
 
 ---
 
-### 5. Handle Rollback Failures
+### ✅ DO: Use Clerk State for Rollback
 
 ```typescript
-// ✅ CORRECT - Log critical errors
-if (!rollbackSuccess) {
-  logger.error('CRITICAL: Manual reconciliation required', {
-    clerkId,
-    attemptedChanges,
-    originalState,
-  });
-}
-
-// ❌ WRONG - Silent failure
-if (!rollbackSuccess) {
-  // Nothing logged, data inconsistent forever
-}
+rollbackUpdates.firstName = clerkUserBeforeUpdate.firstName;
+rollbackUpdates.publicMetadata = {...clerkUserBeforeUpdate.publicMetadata};
 ```
 
----
+### ❌ DON'T: Use DB State for Rollback
 
-## Security Considerations
-
-### 1. Token Verification
-
-**How it works:**
-- Every protected request → ClerkStrategy verifies token with Clerk
-- Invalid/expired tokens → Rejected immediately
-- No database lookup until token is valid
-
-### 2. Webhook Signature Verification
-
-**How it works:**
-- Clerk signs webhooks with secret key (Svix)
-- Your app verifies signature before processing
-- Invalid signatures → Rejected (logs warning)
-
-### 3. Soft Deletes
-
-**Why:**
-- User accounts marked INACTIVE, not deleted permanently
-- Preserves audit trail and relationships
-- Can recover accounts if needed
-
-### 4. Audit Logging
-
-**What's logged:**
-- Who made the change (userId)
-- What changed (fields)
-- When (timestamp)
-- Where (IP address, requestId)
-
----
-
-## Monitoring & Alerts
-
-### Key Metrics to Track
-
-1. **Authentication Success Rate**
-   - Target: > 99%
-   - Alert if: < 95%
-
-2. **Webhook Processing Time**
-   - Target: < 500ms
-   - Alert if: > 2 seconds
-
-3. **Rollback Frequency**
-   - Target: < 1 per day
-   - Alert if: > 5 per hour
-
-4. **Drift Detection Rate**
-   - Target: 0 users
-   - Alert if: > 10 users
-
-5. **Token Verification Time**
-   - Target: < 200ms
-   - Alert if: > 1 second
+```typescript
+// WRONG - DB may be stale
+rollbackUpdates.firstName = dbUser.firstName;
+```
 
 ---
 
 ## Summary
 
-### Key Takeaways
+### Key Principles
 
-1. **Clerk is the boss** - Always update Clerk first
-2. **Webhooks keep things in sync** - Automatic, reliable
-3. **Database follows Clerk** - Mirror, never lead
-4. **Rollback prevents chaos** - If something fails, revert
-5. **Reconciliation fixes drift** - Periodic checks and repairs
-6. **Audit logs everything** - Who, what, when, where
-
-### Architecture Principles
-
-1. **Single Source of Truth** - Clerk owns authentication
-2. **Eventual Consistency** - Webhooks sync data asynchronously
-3. **Best-Effort Rollback** - Try to revert on failures
-4. **Idempotency** - Safe to process same event multiple times
-5. **Audit Trail** - Every change is logged
+```
+┌──────────────────────────────────────┐
+│ 1. Clerk = Source of Truth           │
+│ 2. Database = Mirror                 │
+│ 3. Webhooks = Sync Mechanism         │
+│ 4. Always Update Clerk First         │
+│ 5. Merge Metadata (Don't Replace)    │
+│ 6. Rollback Uses Clerk State         │
+│ 7. Audit Everything                  │
+└──────────────────────────────────────┘
+```
 
 ### System Guarantees
 
 ✅ **We guarantee:**
-- User can always log in if Clerk account exists
-- Profile changes are logged
-- Webhooks prevent data loss
-- Rollback attempts on failures
+- Users can login if Clerk account exists
+- Profile changes are audited
+- Rollback attempts on DB failures
+- Metadata preservation during updates
 
 ❌ **We cannot guarantee:**
-- Zero millisecond sync (webhooks take time)
+- Zero-latency sync (webhooks take ~100ms)
 - 100% rollback success (network issues)
-- Perfect consistency at all times (eventual consistency model)
+- Perfect consistency (eventual consistency model)
 
 ---
 
-## Questions?
-
-Common questions answered:
-
-**Q: Why not just use Clerk's database?**
-A: Clerk doesn't support relational data (posts, courses, enrollments). You need your own database.
-
-**Q: Can I skip webhooks and create users directly?**
-A: No. Webhooks ensure Clerk and your DB stay in sync automatically.
-
-**Q: What if webhook fails?**
-A: Clerk retries for 3 days. ProfileReconciliationService catches missed ones.
-
-**Q: Why soft delete instead of hard delete?**
-A: Preserves audit trail, relationships, and allows account recovery.
-
-**Q: Can I change the source of truth to my database?**
-A: Not recommended. Clerk is an expert at security. Let them handle it.
-
----
-
-## Next Steps
-
-1. ✅ Read this guide
-2. ✅ Test endpoints in Swagger
-3. ✅ Check webhook logs
-4. ✅ Monitor reconciliation service
-5. ✅ Review audit logs
-6. ✅ Set up alerts for critical errors
+**End of Documentation**
